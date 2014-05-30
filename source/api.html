@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js">/*
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ * API-Rest Alloy Adapter
+ */
+
+var CRUD_TO_REST = {
+	&#39;create&#39; : &#39;POST&#39;,
+	&#39;read&#39; : &#39;GET&#39;,
+	&#39;update&#39; : &#39;PUT&#39;,
+	&#39;delete&#39; : &#39;DELETE&#39;
+};
+
+exports.sync = function(method, model, opt) {
+
+	var url = &#39;&#39;;
+	if (model.config.adapter.baseUrl &amp;&amp; model.config.adapter.baseUrl.length&gt;0) {
+		url = model.config.adapter.baseUrl;
+	} else {
+		url = &#39;/&#39;;
+	}
+
+	url += model.config.adapter.name;
+
+	if (model.id) {
+		url += &#39;/&#39; + model.id;
+	}
+
+	if (opt.patch) {
+		method = &#39;patch&#39;;
+	}
+
+	var data = _.extend(opt.netArgs || {}, opt.networkArgs || {}, {
+		url: url,
+		method: CRUD_TO_REST[method],
+		mime: &#39;json&#39;
+	});
+
+	if (Alloy.Backbone.emulateHTTP) {
+		if ([&#39;DELETE&#39;,&#39;PUT&#39;,&#39;PATCH&#39;].indexOf(data.method)!==false) {
+			data.headers = _.extend(data.headers || {}, { &#39;X-HTTP-Method-Override&#39;: data.method });
+			data.method = &#39;POST&#39;;
+		}
+	}
+
+	switch (method) {
+
+		case &#39;create&#39;:
+		require(&#39;net&#39;).send(_.extend(data, {
+			data: model.toJSON(),
+			success: function(resp) {
+				if (resp.id) {
+					opt.success(resp);
+				} else {
+					opt.success();
+				}
+
+				if (opt.ready) opt.ready();
+				model.trigger(&quot;fetch&quot;);
+			},
+			error: opt.error
+		}));
+		break;
+
+		case &#39;read&#39;:
+		require(&#39;net&#39;).send(_.extend(data, {
+			data: opt.args || {},
+			success: function(resp) {
+				opt.success(resp);
+
+				if (opt.ready) opt.ready();
+				model.trigger(&quot;fetch&quot;);
+			},
+			error: opt.error
+		}));
+		break;
+
+		case &#39;update&#39;:
+		require(&#39;net&#39;).send(_.extend(data, {
+			data: _.pick(model.attributes, _.keys(opt.changes)),
+			success: function(resp) {
+				if (resp.id) {
+					opt.success(resp);
+				} else {
+					opt.success();
+				}
+
+				if (opt.ready) opt.ready();
+				model.trigger(&quot;fetch&quot;);
+			},
+			error: opt.error
+		}));
+		break;
+
+		case &#39;delete&#39;:
+		require(&#39;net&#39;).send(_.extend(data, {
+			data: opt.args || {},
+			success: function(resp) {
+				opt.success();
+
+				if (opt.ready) opt.ready();
+				model.trigger(&quot;fetch&quot;);
+			},
+			error: opt.error
+		}));
+		break;
+
+	}
+};</pre>
+</body>
+</html>

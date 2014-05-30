@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='Events'>/**
+</span> * @class  Events
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ * A simple proxy for Ti.App Events
+ */
+
+<span id='Events-property-config'>/**
+</span> * @type {Object}
+ */
+var config = _.extend({}, Alloy.CFG.events);
+exports.config = config;
+
+
+var EVENTS = {};
+
+
+<span id='Events-method-add'>/**
+</span> * Adds the specified callback as an event listener for the named events
+ *
+ * @param {String}   key  The unique key
+ * @param {Function} cb The callback
+ */
+function add(key, cb) {
+	if (key in EVENTS) EVENTS[key].push(cb);
+	else EVENTS[key] = [cb];
+	Ti.App.addEventListener(key, cb);
+}
+exports.add = add;
+
+<span id='Events-method-on'>/**
+</span> * @method on
+ * @inheritDoc #add
+ * Alias for {@link #add}
+ */
+exports.on = add;
+
+<span id='Events-method-rem'>/**
+</span> * Removes the specified callback as an event listener for the named event.
+ *
+ * If no callback is specified, all listener for that key were removed
+ *
+ * @param {String}   key  The unique key
+ * @param {Function} cb The callback
+ */
+function rem(key, cb) {
+	if (!(key in EVENTS)) return;
+	_.each(EVENTS[key], function(loopCb, i){
+		if (loopCb===cb || !loopCb) {
+			Ti.App.removeEventListener(key, loopCb);
+			EVENTS[key].splice(i);
+		}
+	});
+}
+exports.rem = rem;
+
+<span id='Events-method-off'>/**
+</span> * @method off
+ * @inheritDoc #rem
+ * Alias for  {@link #off}
+ */
+exports.off = rem;
+
+<span id='Events-method-fire'>/**
+</span> * Fires a synthesized event to any registered listeners.
+ *
+ * @param  {String} key  The unique key
+ * @param  {Object} [args] The arguments to pass to the event
+ */
+function fire(key, args) {
+	Ti.App.fireEvent(key, args || {});
+}
+exports.fire = fire;
+
+<span id='Events-method-trigger'>/**
+</span> * @method trigger
+ * @inheritDoc #fire
+ * Alias for {@link #fire}
+ */
+exports.trigger = fire;</pre>
+</body>
+</html>

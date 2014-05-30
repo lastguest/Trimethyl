@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='Auth-Facebook'>/**
+</span> * @class  Auth.Facebook
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ * Auth driver to handle Facebook authentication
+ */
+
+<span id='Auth-Facebook-property-config'>/**
+</span> * * **appid**: Application ID. Default: `null`
+ * * **permissions**: Array of permissions. Default: `[]`
+ * @type {Object}
+ */
+var config = _.extend({
+	appid: null,
+	permissions: []
+}, Alloy.CFG.auth ? Alloy.CFG.auth.facebook : {});
+exports.config = config;
+
+
+var FB = require(&#39;facebook&#39;);
+var Auth = require(&#39;auth&#39;);
+
+var authorized = false;
+var lastEvent = null;
+var timeout = null;
+var successLogin = null;
+var silent = true;
+
+function loginToServer(e) {
+	if (timeout) clearTimeout(timeout);
+	if (e.cancelled) return;
+
+	if (!e.success) {
+
+		Ti.API.error(&quot;Auth.Facebook: &quot;+e);
+		Ti.App.fireEvent(&#39;auth.fail&#39;, {
+			silent: silent,
+			message: L(&#39;auth_facebook_error&#39;)
+		});
+
+	} else {
+
+		Ti.API.debug(&quot;Auth.Facebook: success&quot;);
+		Auth.login({
+			access_token: FB.accessToken,
+			silent: silent
+		}, &#39;facebook&#39;, successLogin);
+	}
+}
+
+function authorize() {
+	if (FB.loggedIn &amp;&amp; FB.accessToken) {
+		loginToServer({ success: true });
+	} else {
+		authorized = true;
+		FB.authorize();
+	}
+}
+
+<span id='Auth-Facebook-method-handleLogin'>/**
+</span> * Login using Facebook SDK and make the request to the API server, silently
+ */
+function handleLogin() {
+	silent = true;
+	authorized = false;
+
+	// Prevent app freezing
+	timeout = setTimeout(function(){
+		return loginToServer({ success: false });
+	}, 10000);
+
+	authorize();
+}
+exports.handleLogin = handleLogin;
+
+
+<span id='Auth-Facebook-method-login'>/**
+</span> * Login using Facebook SDK and make the request to the API server
+ *
+ * @param  {Function} success Callback when login success
+ */
+function login(success){
+	silent = false;
+	successLogin = success;
+
+	// If there&#39;s an error, try the legacy mode of Facebook login, that we are sure that works.
+	if (lastEvent &amp;&amp; !lastEvent.success) {
+		FB.forceDialogAuth = true;
+	}
+
+	authorize();
+}
+exports.login = login;
+
+
+<span id='Auth-Facebook-method-logout'>/**
+</span> * Remove any stored user data
+ */
+function logout() {
+	FB.logout();
+}
+exports.logout = logout;
+
+
+(function init(){
+	FB.forceDialogAuth = false;
+
+	if (!FB.appid) {
+		if (config.appid) {
+			FB.appid = config.appid;
+		} else if (Ti.App.Properties.hasProperty(&#39;ti.facebook.appid&#39;)) {
+			FB.appid = Ti.App.Properties.getString(&#39;ti.facebook.appid&#39;, false);	// Legacy mode
+		} else {
+			Ti.API.warn(&quot;Auth.Facebook: Please specify a Facebook AppID&quot;);
+		}
+	}
+
+	if (config.permissions) {
+		FB.permissions = _.isArray(config.permissions) ? config.permissions : config.permissions.split(&#39;,&#39;);
+	}
+
+	FB.addEventListener(&#39;login&#39;, function(e){
+		lastEvent = e;
+
+		/*
+		checking the authorized flag, we are sure that loginToServer is not called automatically on startup,
+		because on iOS the SDK automatically trigger the login event
+		*/
+		if (authorized) loginToServer(e);
+	});
+
+})();</pre>
+</body>
+</html>

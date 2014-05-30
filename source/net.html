@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='Net'>/**
+</span> * @class  Net
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ * Network module
+ */
+
+<span id='Net-property-config'>/**
+</span> * * **base**: The base URL of the API
+ * * **timeout**: Global timeout for the requests. After this value (express in seconds) the requests throw an error. Default: `http://localhost`
+ * * **useCache**: Check if the requests are automatically cached. Default: `true`
+ * * **headers**: Global headers for all requests. Default: `{}`
+ * * **debug**: Enable ultra verbose logging. Default: `true`
+ * * **usePingServer**: Enable the PING-Server support. Default: `true`
+ * @type {Object}
+ */
+var config = _.extend({
+	base: &#39;http://localhost&#39;,
+	timeout: 10000,
+	useCache: true,
+	headers: {},
+	debug: false,
+	usePingServer: true
+}, Alloy.CFG.net);
+exports.config = config;
+
+
+var DB = null;
+var queue = {};
+var serverConnected = null;
+var errorHandler = null;
+
+function originalErrorHandler(e) { require(&#39;util&#39;).alertError(e.message); }
+errorHandler = originalErrorHandler;
+
+function calculateHash(request) {
+	return Ti.Utils.md5HexDigest(request.url+JSON.stringify(request.data||{})+JSON.stringify(request.headers||{}));
+}
+
+function writeCache(request, response, info) {
+	if (!DB) {
+		Ti.API.error(&quot;NetworkCache: database not open.&quot;);
+		return false;
+	}
+
+	DB.execute(&#39;INSERT OR REPLACE INTO net (id, expire, creation, content, info) VALUES (?,?,?,?,?)&#39;,
+		request.hash,
+		info.expire,
+		require(&#39;util&#39;).timestamp(),
+		response.responseData,
+		JSON.stringify(info)
+		);
+
+	if (ENV_DEVELOPMENT &amp;&amp; config.debug) {
+		Ti.API.debug(&quot;NetworkCache: Cache written successfully.&quot;);
+	}
+}
+
+function getCache(request, bypassExpiration) {
+	if (!DB) {
+		Ti.API.error(&quot;NetworkCache: database not open.&quot;);
+		return false;
+	}
+
+	if (request.refresh || request.cache===false) {
+		if (ENV_DEVELOPMENT &amp;&amp; config.debug) {
+			Ti.API.debug(&quot;NetworkCache: request cache forced to refresh&quot;);
+		}
+		return false;
+	}
+
+	var cacheRow = DB.execute(&#39;SELECT expire, creation FROM net WHERE id = ? LIMIT 1&#39;, request.hash);
+	if (!cacheRow || !cacheRow.isValidRow()) {
+		Ti.API.debug(&quot;NetworkCache: cache not found&quot;);
+		return false;
+	}
+
+	var expire = +cacheRow.fieldByName(&#39;expire&#39;) || 0;
+	var creation = +cacheRow.fieldByName(&#39;creation&#39;) || 0;
+	var now = require(&#39;util&#39;).timestamp();
+
+	if (!bypassExpiration) {
+		if (ENV_DEVELOPMENT &amp;&amp; config.debug) {
+			Ti.API.debug(&quot;NetworkCache: cache values are &quot;+expire+&quot; - &quot;+now+&quot; = &quot;+(expire-now)+&quot;s&quot;);
+		}
+		if (expire&lt;now) {
+			return false;
+		}
+	}
+
+	var cache = DB.execute(&#39;SELECT info, content FROM net WHERE id = ? LIMIT 1&#39;, request.hash);
+	var content = cache.fieldByName(&#39;content&#39;);
+	if (!content) {
+		Ti.API.error(&quot;NetworkCache: invalid cache content&quot;);
+		return false;
+	}
+
+	var info = require(&#39;util&#39;).parseJSON(cache.fieldByName(&#39;info&#39;)) || {};
+	if (info &amp;&amp; info.mime==&#39;json&#39;) {
+		return require(&#39;util&#39;).parseJSON(content);
+	} else {
+		return content;
+	}
+}
+
+function setApplicationInfo(appInfo) {
+	_.each(appInfo, function(v,k){
+		Ti.App.Properties.setString(&#39;settings.&#39;+k, v);
+	});
+}
+
+
+<span id='Net-method-setErrorHandler'>/**
+</span> * Set a new global handler for the errors
+ * @param {Function} fun The new function
+ */
+function setErrorHandler(fun) {
+	errorHandler = fun;
+}
+exports.setErrorHandler = setErrorHandler;
+
+
+<span id='Net-method-resetErrorHandler'>/**
+</span> * Reset the original error handler
+ */
+function resetErrorHandler(){
+	errorHandler = originalErrorHandler;
+}
+exports.resetErrorHandler = resetErrorHandler;
+
+
+function getResponseInfo(response) {
+	var info = {};
+
+	// Check first the Content-Type
+	var contentType = response.getResponseHeader(&#39;Content-Type&#39;);
+	if (contentType==&#39;application/json&#39;) {
+		info.mime = &#39;json&#39;;
+	}
+
+	// Check the Expires header
+	var expires = response.getResponseHeader(&#39;Expires&#39;);
+	if (expires) {
+		var t = require(&#39;util&#39;).timestamp(expires);
+		if (t) info.expire = t;
+	}
+
+	// Check againts X-Cache-Ttl header (in seconds)
+	var ttl = response.getResponseHeader(&#39;X-Cache-Ttl&#39;);
+	if (ttl) {
+		info.expire = require(&#39;util&#39;).timestamp( 1000*(require(&#39;util&#39;).timestamp()+parseInt(ttl,10)) );
+	}
+
+	return info;
+}
+
+
+function decorateRequest(request) {
+	if (request.hash) {
+		// yet decorated
+		return request;
+	}
+
+	if (!request.url) request.url = &#39;/&#39;;
+
+	// if the url is not matching :// (a protocol), assign the base URL
+	if (!request.url.match(/\:\/\//)) {
+		request.url = config.base.replace(/\/$/,&#39;&#39;) + &#39;/&#39; + request.url.replace(/^\//, &#39;&#39;);
+	}
+
+	request.method = request.method ? request.method.toUpperCase() : &#39;GET&#39;;
+	request.headers = _.extend(config.headers, request.headers || {});
+	if (!request.timeout) request.timeout = config.timeout;
+
+	if (!request.success) request.success = function(){};
+	if (!request.error) request.error = errorHandler;
+
+	// Rebuild the URL if is a GET and there&#39;s data
+	if (request.method==&#39;GET&#39; &amp;&amp; request.data) {
+		var buildedQuery = require(&#39;util&#39;).buildQuery(request.data);
+		delete request.data;
+		request.url = request.url + buildedQuery.toString();
+	}
+
+	request.hash = calculateHash(request);
+	return request;
+}
+
+
+function onComplete(request, response, e){
+	// Delete request from queue
+	delete queue[request.hash];
+
+	// Fire the global event
+	if (!request.silent) {
+		Ti.App.fireEvent(&#39;net.end&#39;, {
+			id: request.hash,
+			eventName: request.eventName || null
+		});
+	}
+
+	if (request.complete) {
+		request.complete();
+	}
+
+	// Get the response information
+	var info = getResponseInfo(response);
+
+	// Override response info
+	if (request.mime) info.mime = request.mime;
+	if (request.expire) info.expire = request.expire;
+
+	if (ENV_DEVELOPMENT &amp;&amp; config.debug) {
+		Ti.API.debug(&quot;Network: response informations are &quot;+JSON.stringify(info));
+	}
+
+	var returnValue = null;
+	var returnError = null;
+
+	// Parse based on response info
+	if (info.mime==&#39;json&#39;) {
+		returnValue = require(&#39;util&#39;).parseJSON(response.responseText);
+	} else {
+		returnValue = response.responseData;
+	}
+
+	if (e.success) {
+
+		/*
+		SUCCESS
+		*/
+
+		if (ENV_DEVELOPMENT &amp;&amp; config.debug) {
+			Ti.API.debug(&quot;Network: response success&quot;);
+		}
+
+		// Write cache
+		if (config.useCache &amp;&amp; request.cache!==false) {
+			if (request.method==&#39;GET&#39; &amp;&amp; info.expire&gt;0) {
+				writeCache(request, response, info);
+			}
+		}
+
+		// Success callback
+		request.success(returnValue);
+		return true;
+
+	} else {
+
+		/*
+		ERROR
+		*/
+
+		if (ENV_DEVELOPMENT &amp;&amp; config.debug) {
+			Ti.API.error(&quot;Network: error -&gt; &quot;+JSON.stringify(response));
+		}
+
+		// Parse the error returned from the server
+		if (returnValue &amp;&amp; returnValue.error) {
+			returnError = returnValue.error.message ? returnValue.error.message : returnValue.error;
+		} else {
+			returnError = L(&#39;net_error&#39;);
+		}
+
+		// Build the error
+		var E = {
+			message: returnError,
+			code: response.status
+		};
+
+		// Error callback
+		request.error(E);
+		return false;
+
+	}
+}
+
+
+<span id='Net-method-isOnline'>/**
+</span> * Check the internet connectivity
+ * @return {Boolean} The status
+ */
+function isOnline() {
+	return Ti.Network.online;
+}
+exports.isOnline = isOnline;
+
+
+<span id='Net-method-addHeader'>/**
+</span> * Add a global header for all requests
+ * @param {String} key 		The header key
+ * @param {String} value 	The header value
+ */
+function addHeader(key, value) {
+	config.headers[key] = value;
+}
+exports.addHeader = addHeader;
+
+
+<span id='Net-method-removeHeader'>/**
+</span> * Remove a global header
+ * @param {String} key 		The header key
+ */
+function removeHeader(key) {
+	delete config.headers[key];
+}
+exports.removeHeader = removeHeader;
+
+
+<span id='Net-method-resetHeaders'>/**
+</span> * Reset all globals headers
+ */
+function resetHeaders() {
+	config.headers = {};
+}
+exports.resetHeaders = resetHeaders;
+
+
+<span id='Net-method-isServerConnected'>/**
+</span> * When using a PING-Server, check if the connection has been estabilished
+ * @return {Boolean}
+ */
+function isServerConnected(){
+	return serverConnected;
+}
+exports.isServerConnected = isServerConnected;
+
+
+<span id='Net-method-usePingServer'>/**
+</span> * Return the value of config.usePingServer
+ * @return {Boolean}
+ */
+function usePingServer(){
+	return config.usePingServer;
+}
+exports.usePingServer = usePingServer;
+
+
+<span id='Net-method-connectToServer'>/**
+</span> * Connect to the PING-Server
+ *
+ * This method also set the properties for **settings.{X}**
+ *
+ * Fire a *net.ping.success* on success
+ *
+ * Fire a *net.ping.error* on error
+ *
+ * @param  {Function} cb The success callback
+ */
+function connectToServer(cb) {
+	return send({
+		url: &#39;/ping&#39;,
+		method: &#39;POST&#39;,
+		silent: true,
+		success: function(appInfo){
+			serverConnected = true;
+			setApplicationInfo(appInfo);
+			Ti.App.fireEvent(&#39;net.ping.success&#39;);
+			if (cb) cb(true);
+		},
+		error: function(message, response){
+			serverConnected = false;
+			Ti.App.fireEvent(&#39;net.ping.error&#39;);
+			if (cb) cb(false);
+		}
+	});
+}
+exports.connectToServer = connectToServer;
+
+
+<span id='Net-method-isQueueEmpty'>/**
+</span> * Check if the requests queue is empty
+ * @return {Boolean}
+ */
+function isQueueEmpty(){
+	return !queue.length;
+}
+exports.isQueueEmpty = isQueueEmpty;
+
+
+<span id='Net-method-getQueue'>/**
+</span> * Get the current requests queue
+ * @return {Array}
+ */
+function getQueue(){
+	return queue;
+}
+exports.getQueue = getQueue;
+
+
+<span id='Net-method-getQueuedRequest'>/**
+</span> * Get the request identified by the hash in the queued requests
+ *
+ * If a complete request object is passed, the hash is calculated
+ *
+ * @param  {String|Object} hash The hash or the request
+ * @return {Ti.Network.HTTPClient}
+ */
+function getQueuedRequest(hash) {
+	if (_.isObject(hash)) hash = decorateRequest(hash).hash;
+	return queue[hash];
+}
+exports.getQueuedRequest = getQueuedRequest;
+
+
+<span id='Net-method-abortRequest'>/**
+</span> * Abort the request identified by the hash in the queued requests
+ *
+ *  If a complete request object is passed, the hash is calculated
+ *
+ * @param  {String|Object} hash The hash or the request
+ */
+function abortRequest(hash) {
+	var httpClient = getQueuedRequest(hash);
+	if (!httpClient) return;
+	try {
+		httpClient.abort();
+		Ti.API.debug(&quot;Network: request aborted&quot;);
+	} catch (e) {
+		Ti.API.error(&quot;Network: aborting request error, &quot;+e);
+	}
+}
+exports.abortRequest = abortRequest;
+
+<span id='Net-method-resetCache'>/**
+</span> * Clear **ALL** cache
+ */
+function resetCache() {
+	if (!DB) {
+		Ti.API.error(&quot;NetworkCache: database not open.&quot;);
+		return false;
+	}
+
+	DB.execute(&#39;DELETE FROM net&#39;);
+}
+exports.resetCache = resetCache;
+
+
+<span id='Net-method-resetCookies'>/**
+</span> * Reset the cookies for all requests
+ */
+function resetCookies() {
+	// TODO
+}
+exports.resetCookies = resetCookis;
+
+
+<span id='Net-method-deleteCache'>/**
+</span> * Delete the cache entry for the passed request
+ *
+ * If a complete request object is passed, the hash is calculated
+ *
+ * @param  {String|Object} request [description]
+ */
+exports.deleteCache = function(hash) {
+	if (!DB) {
+		Ti.API.error(&quot;NetworkCache: database not open.&quot;);
+		return false;
+	}
+
+	if (_.isObject(hash)) hash = decorateRequest(hash).hash;
+	DB.execute(&#39;DELETE FROM net WHERE id = ?&#39;, hash);
+};
+
+<span id='Net-method-send'>/**
+</span> * The main function of the module, create the HTTPClient and make the request
+ *
+ *	There are various options to pass:
+ *
+ * * **url**: The endpoint URL
+ * * **method**: The HTTP method to use (GET|POST|PUT|PATCH|..)
+ * * **headers**: An Object key-value of additional headers
+ * * **timeout**: Timeout after stopping the request and triggering an error
+ * * **cache**: Set to false to disable the cache
+ * * **success**: The success callback
+ * * **error**: The error callback
+ * * **mime**: Override the mime for that request (like `json`)
+ * * **expire**: Override the TTL seconds for the cache
+ *
+ * @param  {Object} request The request dictionary
+ * @return {String}	The hash to identify this request
+ */
+function send(request) {
+	request = decorateRequest(request);
+
+	if (ENV_DEVELOPMENT &amp;&amp; config.debug) {
+		Ti.API.debug(&quot;Network: making request -&gt; &quot;+JSON.stringify(request));
+	}
+
+	// Try to get the cache, otherwise make the HTTP request
+	if (config.useCache &amp;&amp; request.cache!==false &amp;&amp; request.method==&#39;GET&#39;) {
+
+		var cache = getCache(request, !Ti.Network.online);
+		if (cache) {
+
+			// if we are offline, but we got cache, fire event to handle
+			if (!Ti.Network.online) {
+				Ti.App.fireEvent(&#39;net.offline&#39;, {
+					cache: true
+				});
+			}
+
+			if (request.complete) {
+				request.complete();
+			}
+
+			if (ENV_DEVELOPMENT &amp;&amp; config.debug) {
+				Ti.API.debug(&quot;Network: success from cache&quot;);
+			}
+
+			request.success(cache);
+			return request.hash;
+		}
+	}
+
+	// If we aren&#39;t online and we are here, we can&#39;t proceed, so STOP!
+	if (!isOnline()) {
+		Ti.App.fireEvent(&#39;net.offline&#39;, { cache: false });
+		require(&#39;util&#39;).alert(L(&#39;net_offline_title&#39;), L(&#39;net_offline_message&#39;));
+		return false;
+	}
+
+	var H = Ti.Network.createHTTPClient();
+
+	if (!request.silent) {
+		Ti.App.fireEvent(&#39;net.start&#39;, {
+			id: request.hash,
+			eventName: request.eventName || null
+		});
+	}
+
+	// Add this request to the queue
+	queue[request.hash] = H;
+	H.timeout = request.timeout;
+	H.cache = false;
+
+	// onLoad &amp;&amp; onError are the same because we have an internal parser that discern the event.success property; WOW!
+	H.onload = H.onerror = function(e){ onComplete(request, this, e); };
+	H.open(request.method, request.url);
+
+	// Set the headers
+	_.each(request.headers, function(h, k) {
+		H.setRequestHeader(k, h);
+	});
+
+	// Finally, send the request
+	if (request.data) {
+		H.send(request.data);
+	} else {
+		H.send();
+	}
+
+	// And return the hash of this request
+	return request.hash;
+}
+exports.send = send;
+
+
+<span id='Net-method-get'>/**
+</span> * @method get
+ * Make a GET request to that URL
+ * @param  {String}   	url The endpoint url
+ * @param  {Function} 	success  Success callback
+ * @param  {Function} 	error Error callback
+ * @return {String}		The hash
+ */
+exports.get = function(url, success, error) {
+	return send({
+		url: url,
+		method: &#39;GET&#39;,
+		success: success,
+		error: error
+	});
+};
+
+
+<span id='Net-method-post'>/**
+</span> * @method post
+ * Make a POST request to that URL
+ * @param  {String}   	url The endpoint url
+ * @param  {Object}   	data The data
+ * @param  {Function} 	success  Success callback
+ * @param  {Function} 	error Error callback
+ * @return {String}		The hash
+ */
+exports.post = function(url, data, success, error) {
+	return send({
+		url: url,
+		method: &#39;POST&#39;,
+		data: data,
+		success: success,
+		error: error
+	});
+};
+
+<span id='Net-method-getJSON'>/**
+</span> * @method  getJSON
+ * Make a GET request to that url with that data and setting the mime forced to JSON
+ * @param  {String}   	url 	The endpoint url
+ * @param  {Object}   	data 	The data
+ * @param  {Function} 	success  Success callback
+ * @param  {Function} 	error Error callback
+ * @return {String}		The hash
+ */
+exports.getJSON = function(url, data, success, error) {
+	return send({
+		url: url,
+		data: data,
+		method: &#39;GET&#39;,
+		mime: &#39;json&#39;,
+		success: success,
+		error: error
+	});
+};
+
+<span id='Net-method-postJSON'>/**
+</span> * @method  postJSON
+ * Make a POST request to that url with that data and setting the mime forced to JSON
+ * @param  {String}   	url 	The endpoint url
+ * @param  {Object}   	data 	The data
+ * @param  {Function} 	success  Success callback
+ * @param  {Function} 	error Error callback
+ * @return {String}		The hash
+ */
+exports.postJSON = function(url, data, success, error) {
+	return send({
+		url: url,
+		data: data,
+		method: &#39;POST&#39;,
+		mime: &#39;json&#39;,
+		success: success,
+		error: error
+	});
+};
+
+
+(function init(){
+	if (config.useCache) {
+		DB = require(&#39;db&#39;).open();
+		if (DB) {
+			DB.execute(&#39;CREATE TABLE IF NOT EXISTS net (id TEXT PRIMARY KEY, expire INTEGER, creation INTEGER, content TEXT, info TEXT)&#39;);
+		}
+	}
+})();
+</pre>
+</body>
+</html>

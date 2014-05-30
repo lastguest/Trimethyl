@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='Util'>/**
+</span> * @class  	Util
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ * Util module.
+ *
+ * All things that I don&#39;t know where to put, are here.
+ *
+ */
+
+
+<span id='Util-method-openURL'>/**
+</span> * Try to open the URL with `Ti.Platform.openURL`, catching errors.
+ *
+ * If can&#39;t open the primary argument (url), open the fallback.
+ *
+ * If can&#39;t open the fallback, and `error` is set, show the error dialog.
+ *
+ * @param  {String} url The URL to open
+ * @param  {String|Function} [fallback] If is a string, try to open the URL. If is a functions, call it.
+ * @param  {String} [error]    The error to show
+ */
+function openURL(url, fallback, error) {
+	if (OS_IOS &amp;&amp; Ti.Platform.canOpenURL(url)) {
+		try {
+			Ti.Platform.openURL(url);
+		} catch (e) {}
+	} else if (fallback) {
+		if (_.isFunction(fallback)) {
+			fallback();
+		} else {
+			try {
+				Ti.Platform.openURL(fallback);
+			} catch (e) {}
+		}
+	} else if (error) {
+		alertError(error);
+	}
+}
+exports.openURL = openURL;
+
+
+<span id='Util-method-tryOpenURL'>/**
+</span> * Try to open a series of URLs, cycling over all while a valid URL is found.
+ *
+ * On Android, open the last element of the array.
+ *
+ * @param  {Array} array The array of URLs
+ */
+function tryOpenURL(array) {
+	if (OS_IOS) {
+		for (var k in array) {
+			if (Ti.Platform.canOpenURL(array[k])) {
+				Ti.Platform.openURL(array[k]);
+				return;
+			}
+		}
+	} else {
+		Ti.Platform.openURL(array.pop());
+	}
+}
+exports.tryOpenURL = tryOpenURL;
+
+
+<span id='Util-method-startActivity'>/**
+</span> * Valid only on Android, start the activity catching any possible errors.
+ *
+ * If `error` is provided, show the error dialog with this message.
+ *
+ * @param  {Object} opt   Options for `createIntent(...)`
+ * @param  {String} [error] Error message
+ */
+function startActivity(opt, error) {
+	try {
+		Ti.Android.currentActivity.startActivity(Ti.Android.createIntent(opt));
+	} catch (ex) {
+		if (error) {
+			alertError(error);
+		}
+	}
+}
+exports.startActivity = startActivity;
+
+
+<span id='Util-method-openFacebookProfile'>/**
+</span> * @method  openFacebookProfile
+ * Open a Facebook profile in the Facebook application
+ * @param  {String} fbid Facebook ID
+ */
+exports.openFacebookProfile = function(fbid) {
+	openURL(&quot;fb://profile/&quot;+fbid, &quot;https://facebook.com/&quot;+fbid);
+};
+
+
+<span id='Util-method-openTwitterProfile'>/**
+</span> * @method  openTwitterProfile
+ * Open a Twitter profile in the Twitter application
+ * @param  {String} twid Twitter screen name
+ */
+exports.openTwitterProfile = function(twid) {
+	return openURL(&quot;twitter://user?screen_name=&quot;+twid, &quot;http://twitter.com/&quot;+twid);
+};
+
+
+<span id='Util-method-getFacebookAvatar'>/**
+</span> * Get the Facebook avatar from the graph
+ *
+ * @param  {String} fbid Facebook ID
+ * @param  {Number} [w]    Width
+ * @param  {Number} [h]    Height
+ * @return {String}      	The open graph url pointing to the image
+ */
+exports.getFacebookAvatar = function(fbid, w, h) {
+	return &#39;http://graph.facebook.com/&#39;+fbid+&#39;/picture/?width=&#39;+(w||150)+&#39;&amp;height=&#39;+(h||150);
+};
+
+
+<span id='Util-method-reviewInStore'>/**
+</span> * @method reviewInStore
+ * Open the iTunes Store or Google Play Store to review this app
+ *
+ * Set the `app.itunes` and `app.id` in the **config.json**
+ *
+ */
+exports.reviewInStore = function() {
+	if (OS_IOS) {
+		Ti.Platform.openURL(&#39;itms-apps://itunes.apple.com/app/id&#39;+Alloy.CFG.app.itunes);
+	} else if (OS_ANDROID) {
+		Ti.Platform.openURL(&#39;https://play.google.com/store/apps/details?id=&#39;+Alloy.CFG.app.id+&#39;&amp;reviewId=0&#39;);
+	}
+};
+
+
+<span id='Util-method-getDomainFromURL'>/**
+</span> * @method  getDomainFromURL
+ * Return the clean domain of an URL
+ *
+ * @param  {String} url The URL to parse
+ * @return {String}     Clean domain
+ */
+exports.getDomainFromURL = function(url) {
+	var matches = url.match(/https?\:\/\/([^\/]*)/i);
+	if (!matches) return &#39;&#39;;
+	return matches[1].replace(&#39;www.&#39;, &#39;&#39;);
+};
+
+
+<span id='Util-method-alert'>/**
+</span> * @method alert
+ * Create and show an Alert Dialog
+ *
+ * @param  {String}   title    The title
+ * @param  {String}   msg      The message
+ * @param  {Function} [callback] The callback to invokie when clicking **OK**
+ * @return {Ti.UI.AlertDialog}
+ */
+function alertDialog(title, msg, callback) {
+	var dialog = Ti.UI.createAlertDialog({
+		title: title,
+		message: msg,
+		ok: L(&#39;OK&#39;)
+	});
+	if (callback) dialog.addEventListener(&#39;click&#39;, callback);
+	dialog.show();
+	return dialog;
+}
+exports.alert = alertDialog;
+
+
+<span id='Util-method-prompt'>/**
+</span> * @method prompt
+ * Create and show a prompt dialog
+ *
+ * @param  {String}   title       	The title
+ * @param  {String}   msg         	The message
+ * @param  {Array}    [buttons]     The buttons to show
+ * @param  {Number}   [cancelIndex] Cancel index for buttons
+ * @param  {Function} [callback]    The callback to invoke when clicking on a button. The index of the button is passed.
+ * @param  {Object}   [opt]         Additional options for `Ti.UI.createAlertDialog`
+ * @return {Ti.UI.AlertDialog}
+ */
+function alertPrompt(title, msg, buttons, cancelIndex, callback, opt) {
+	var dialog = Ti.UI.createAlertDialog(_.extend({
+		cancel: cancelIndex,
+		buttonNames: buttons,
+		message: msg,
+		title: title
+	}, opt || {}));
+	dialog.addEventListener(&#39;click&#39;, function(e){
+		if (OS_IOS &amp;&amp; e.index==cancelIndex) return;
+		if (OS_ANDROID &amp;&amp; e.cancel) return;
+		if (callback) callback(e.index);
+	});
+	dialog.show();
+	return dialog;
+}
+exports.prompt = alertPrompt;
+
+
+<span id='Util-method-confirm'>/**
+</span> * @method confirm
+ * Create and show a confirm dialog with *Cancel* and *Yes* button.
+ *
+ * @param  {String}   title 		The title
+ * @param  {String}   msg   		The message
+ * @param  {Function} [cb]    	The callback to invoke when clicking *Yes*.
+ * @return {Ti.UI.AlertDialog}
+ */
+exports.confirm = function(title, msg, cb) {
+	return alertPrompt(title, msg, [ L(&#39;Cancel&#39;), L(&#39;Yes&#39;) ], 0, cb, { selectedIndex: 1 });
+};
+
+
+<span id='Util-method-confirmCustom'>/**
+</span> * @method  confirmCustom
+ * Create and show a confirm dialog with *Cancel* and a custom button.
+ *
+ * @param  {String}   	title 		The title
+ * @param  {String}   	msg   		The message
+ * @param  {String}   	btnTitle 	The custom button title
+ * @param  {Function} 	[cb]    		The callback to invoke when clicking your custom button title.
+ * @return {Ti.UI.AlertDialog}
+ */
+exports.confirmCustom = function(title, msg, btnTitle, cb) {
+	return alertPrompt(title, null, [ L(&#39;Cancel&#39;), btnTitle ], 0, cb, { selectedIndex: 1 });
+};
+
+
+<span id='Util-method-option'>/**
+</span> * @method  option
+ * Create and show an Option Dialog.
+ *
+ * @param  {Array}   	options     	The options to show, as Array of Strings.
+ * @param  {Number}   	cancelIndex 	The cancelIndex.
+ * @param  {Function} 	callback    	Callback to invoke. The index of the selected index is passed.
+ * @param  {Object}   	opt         	Additionals options for `Ti.UI.createOptionDialog`
+ * @return {Ti.UI.OptionDialog}
+ */
+function optionDialog(options, cancelIndex, callback, opt) {
+	if (OS_ANDROID &amp;&amp; cancelIndex&gt;=0) { options.splice(cancelIndex,1); }
+	var dialog = Ti.UI.createOptionDialog(_.extend({
+		options: options,
+		cancel: cancelIndex
+	}, opt || {}));
+	dialog.addEventListener(&#39;click&#39;, function(e){
+		if (OS_IOS &amp;&amp; e.index==cancelIndex) return;
+		if (OS_ANDROID &amp;&amp; e.cancel) return;
+		if (callback) callback(e.index);
+	});
+	dialog.show();
+	return dialog;
+}
+exports.option = optionDialog;
+
+
+<span id='Util-method-optionWithDict'>/**
+</span> * @method optionWithDict
+ * Create and show an Option Dialog.
+ *
+ * It&#39;s an helper function for @{@link #option} method.
+ *
+ * Automatically add a *Cancel* cancelIndexed button.
+ *
+ * The `dict` argument must be in the form:
+ *
+ * ```
+ * [
+ * 	{ title: &quot;Option one&quot;, callback: function(){ ... } },
+ * 	{ title: &quot;Option two&quot;, callback: function(){ ... } },
+ * 	...
+ * ]
+ * ```
+ *
+ * @param  {Array} 	dict 	The dictionary
+ * @return {Ti.UI.OptionDialog}
+ */
+function optionDialogWithDict(dict) {
+	var options = _.pluck(dict, &#39;title&#39;);
+	options.push(L(&#39;Cancel&#39;));
+	return optionDialog(options, options.length-1, function(i){
+		if (dict[+i] &amp;&amp; dict[+i].callback) dict[+i].callback();
+	});
+}
+exports.optionWithDict = optionDialogWithDict;
+
+
+<span id='Util-method-alertError'>/**
+</span> * Show an Error Dialog.
+ *
+ * The title is automatically *Error*, i18n compatible.
+ *
+ * @param  {String}   msg      		The message
+ * @param  {Function} [callback] 	The callback to invoke.
+ * @return {Ti.UI.AlertDialog}
+ */
+function alertError(msg, callback) {
+	return alertDialog(L(&#39;Error&#39;, &#39;Error&#39;), msg, callback);
+}
+exports.alertError = exports.error = alertError;
+
+
+<span id='Util-method-isIOS7'>/**
+</span> * Check if is iOS 7
+ * @return {Boolean}
+ */
+function isIOS7() {
+	return OS_IOS &amp;&amp; +(Ti.Platform.version.split(&quot;.&quot;)[0])&gt;=7;
+}
+exports.isIOS7 = isIOS7;
+
+
+<span id='Util-method-parseSchema'>/**
+</span> * Parse the URL schema on app startup/resume.
+ * @return {String}
+ */
+exports.parseSchema = function() {
+	if (OS_IOS) {
+		var cmd = Ti.App.getArguments();
+		if (cmd &amp;&amp; &#39;url&#39; in cmd) {
+			return cmd.url.replace(/[^:]*\:\/\//, &#39;&#39;);
+		}
+	} else if (OS_ANDROID) {
+		var url = Ti.Android.currentActivity.intent.data;
+		if (url) {
+			return url.replace(/[^:]*\:\/\//, &#39;&#39;);
+		}
+	}
+
+	return &#39;&#39;;
+};
+
+
+<span id='Util-method-uniqid'>/**
+</span> * @method  uniqid
+ * View [link](http://www.php.net/manual/en/function.uniqid.php)
+ * @return {String}
+ */
+exports.uniqid = function(prefix, more_entropy) {
+	if (typeof prefix === &#39;undefined&#39;) {
+		prefix = &#39;&#39;;
+	}
+
+	var retId;
+	var formatSeed = function (seed, reqWidth) {
+		seed = parseInt(seed, 10) .toString(16);
+		if (reqWidth &lt; seed.length) {
+			return seed.slice(seed.length - reqWidth);
+		}
+		if (reqWidth &gt; seed.length) {
+			return Array(1 + (reqWidth - seed.length)).join(&#39;0&#39;) + seed;
+		}
+		return seed;
+	};
+
+	if (!this.php_js) {
+		this.php_js = {};
+	}
+	if (!this.php_js.uniqidSeed) {
+		this.php_js.uniqidSeed = Math.floor(Math.random() * 0x75bcd15);
+	}
+	this.php_js.uniqidSeed++;
+
+	retId = prefix;
+	retId += formatSeed(parseInt(new Date()
+	.getTime() / 1000, 10), 8);
+	retId += formatSeed(this.php_js.uniqidSeed, 5);
+	if (more_entropy) {
+		retId += (Math.random() * 10)
+		.toFixed(8)
+		.toString();
+	}
+
+	return retId;
+};
+
+
+<span id='Util-method-timestamp'>/**
+</span> * @method timestamp
+ * Get the UNIX timestamp.
+ *
+ * @param  {String} [t]  The date to parse. If is not provided, get current timestamp.
+ * @return {Number}
+ */
+exports.timestamp = function(t){
+	if (t) return parseInt(+new Date(t)/1000, 10);
+	return parseInt(+new Date()/1000, 10);
+};
+
+
+<span id='Util-method-parseJSON'>/**
+</span> * @method parseJSON
+ * Try to parse a JSON, and silently fail on error, returning a `null` in this case.
+ *
+ * @param  {String} json 		The JSON to parse.
+ * @return {Object}
+ */
+exports.parseJSON = function(json) {
+	try {
+		return JSON.parse(json) || null;
+	} catch (ex) {
+		return null;
+	}
+};
+
+
+<span id='Util-method-buildQuery'>/**
+</span> * @method buildQuery
+ * Generate URL-encoded query string.
+ *
+ * @param  {Object} obj Object key-value to parse.
+ * @return {String}
+ */
+exports.buildQuery = function(obj) {
+	if (_.isEmpty(obj)) return &#39;&#39;;
+	var q = [];
+	_.each(obj, function(v, k) {
+		if (v!==null &amp;&amp; v!==false &amp;&amp; v!==undefined) {
+			q.push(k+&#39;=&#39;+encodeURIComponent(v));
+		}
+	});
+	if (!q.length) return &#39;&#39;;
+	return &#39;?&#39; + q.join(&#39;&amp;&#39;);
+};
+
+
+<span id='Util-method-getAppDataDirectory'>/**
+</span> * @method  getAppDataDirectory
+ * Return the app-data directory.
+ *
+ * @return {String}
+ */
+exports.getAppDataDirectory = function() {
+	if (Ti.Filesystem.isExternalStoragePresent()) {
+		return Ti.Filesystem.externalStorageDirectory;
+	}
+	return Ti.Filesystem.applicationDataDirectory;
+};
+
+
+<span id='Util-method-dialog'>/**
+</span> * @method  dialog
+ * Dial a number.
+ *
+ * @param  {String} tel The number to call.
+ */
+exports.dial = function(tel) {
+	tel = tel.match(/[0-9]/g).join(&#39;&#39;);
+	if (OS_ANDROID) {
+
+		startActivity({
+			action: Ti.Android.ACTION_CALL,
+			data: &#39;tel:&#39;+tel
+		}, String.format(L(&#39;util_dial_failed&#39;), tel));
+
+	} else {
+		openURL(&#39;tel:&#39;+tel, null, String.format(L(&#39;util_dial_failed&#39;), tel));
+	}
+};
+
+
+<span id='Util-method-isAppFirstUsage'>/**
+</span> * @method isAppFirstUsage
+ * Check if the first open of the app.
+ *
+ * Call @{@link #setAppFirstUsage} to set the first usage of the app.
+ *
+ * @return {Boolean}
+ */
+exports.isAppFirstUsage = function(){
+	return !Ti.App.Properties.hasProperty(&#39;app.firstusage&#39;);
+};
+
+
+<span id='Util-method-setAppFirstUsage'>/**
+</span> * @method setAppFirstUsage
+ * Set the app first usage date.
+ *
+ * Use in conjunction with {@link #isAppFirstUsage}
+ *
+ */
+exports.setAppFirstUsage = function(){
+	Ti.App.Properties.setString(&#39;app.firstusage&#39;, +new Date().toString());
+};
+
+
+<span id='Util-method-populateListViewFromCollection'>/**
+</span> * @method populateListViewFromCollection
+ * Parse an array or a Backbone.Collection and populate a ListView with this values.
+ *
+ * @param  {Array} C   	Array or Backbone.Collection to parse
+ * @param  {Object} opt
+ *
+ * If `groupBy` is specified, and is a function, you must provide a valid callback to group elements.
+ *
+ * If `groupBy` is a string, try to group with `_.groupBy`.
+ *
+ * @param  {Ti.UI.ListView} [$ui]
+ * The ListView to populate. If is not specified, return the elements instead populating directly.
+ *
+ * @return {Array}
+ */
+exports.populateListViewFromCollection = function(C, opt, $ui) {
+	var array = [];
+	var sec = [];
+
+	if (opt.groupBy) {
+
+		if (_.isFunction(opt.groupBy)) {
+			if (C instanceof Backbone.Collection) array = C.groupBy(opt.groupBy);
+			else array = _.groupBy(C, opt.groupBy);
+		} else {
+			array = C;
+		}
+
+		_.each(array, function(els, key){
+			var dataset = [];
+			_.each(els, function(el){
+				dataset.push(opt.datasetCb(el));
+			});
+
+			var s = Ti.UI.createListSection({ items: dataset });
+			if (opt.headerViewCb) s.headerView = opt.headerViewCb(key);
+			else s.headerTitle = key;
+
+			sec.push(s);
+		});
+
+		if ($ui &amp;&amp; opt.sectionIndex) {
+			var sit = [];
+			_.each(_.keys(array), function(u,k){
+				sit.push({ title: u, index: k });
+			});
+			$ui.sectionIndexTitles = sit;
+		}
+
+	} else {
+
+		if (C instanceof Backbone.Collection) array = C.toJSON();
+		else array = C;
+
+		var dataset = [];
+		_.each(array, function(el){
+			dataset.push(opt.datasetCb(el));
+		});
+
+		sec = [ Ti.UI.createListSection({ items: dataset }) ];
+	}
+
+	if ($ui) $ui.sections = sec;
+	else return sec;
+};</pre>
+</body>
+</html>

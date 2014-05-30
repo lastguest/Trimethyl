@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='UI'>/**
+</span> * @class  UI
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ * Provide new UI elements for Titanium
+ *
+ * ** non-CommonJS module**
+ *
+ * You have to use in Alloy with `module=&quot;ui&quot;`
+ *
+ */
+
+
+<span id='UI-method-createModalWindow'>/**
+</span> * @method createModalWindow
+ * Proxy for https://github.com/CaffeinaLab/com.caffeinalab.titanium.modalwindow
+ * @param  {Object} args
+ */
+exports.createModalWindow = function(args) {
+	return Alloy.createWidget(&quot;com.caffeinalab.titanium.modalwindow&quot;, args);
+};
+
+<span id='UI-method-createModalWebView'>/**
+</span> * @method createModalWebView
+ * Provide a simple method to open a *WebView* in a modal window
+ *
+ * Require https://github.com/CaffeinaLab/com.caffeinalab.titanium.modalwindow
+ *
+ * @param  {Object} args
+ */
+exports.createModalWebView = function(args) {
+	args = args || {};
+
+	var opt = {};
+	if (args.url) {
+		opt.url = args.url;
+		delete args.url;
+	} else if (args.html) {
+		opt.html = args.html;
+		delete args.html;
+	}
+
+	var $modal = Alloy.createWidget(&quot;com.caffeinalab.titanium.modalwindow&quot;, args);
+	$modal.add(Ti.UI.createWebView(opt));
+	return $modal;
+};
+
+<span id='UI-method-createYoutubeVideoWebView'>/**
+</span> * @method createYoutubeVideoWebView
+ * View that contain a Youtube video.
+ *
+ * Internally use a WebView to provide the content.
+ *
+ * On iOS, clicking on the video cause the video to play in native iOS player in fullscreen.
+ *
+ * @param  {Object} args [description]
+ * @return {Ti.UI.WebView}      [description]
+ */
+exports.createYoutubeVideoWebView = function(args){
+	args = args || {};
+	args.disableBounce = true;
+	args.willHandleTouches = true;
+	args.showScrollbars = false;
+	args.scalesPageToFit = false;
+
+	if (OS_ANDROID) {
+		args.overScrollMode = Ti.UI.Android.OVER_SCROLL_NEVER;
+		args.pluginState = Titanium.UI.Android.WEBVIEW_PLUGINS_ON;
+		args.enableZoomControls = false;
+	}
+
+	if (!args.youtube.width) args.youtube.width = args.width;
+	if (!args.youtube.height) args.youtube.height = args.height;
+	args.height += 5;
+
+	var $ui = Ti.UI.createWebView(args);
+
+	var html = &#39;&lt;!doctype html&gt;&lt;html style=&quot;margin:0&quot;&gt;&lt;head&gt;&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, user-scalable=no&quot;&gt;&lt;/head&gt;&lt;body style=&quot;margin:0&quot;&gt;&lt;div id=&quot;player&quot;&gt;&lt;/div&gt;&#39;;
+	html += &#39;&lt;script src=&quot;http://www.youtube.com/player_api&quot;&gt;&lt;/script&gt;&#39;;
+	html += &#39;&lt;script&gt;function onYouTubePlayerAPIReady() { window.player = new YT.Player(&quot;player&quot;,&#39;+JSON.stringify(args.youtube) + &#39;); }&lt;/script&gt;&#39;;
+	html += &#39;&lt;/body&gt;&lt;/html&gt;&#39;;
+
+	$ui.html = html;
+
+	return $ui;
+};
+</pre>
+</body>
+</html>

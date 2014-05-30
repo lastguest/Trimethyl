@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='GA'>/**
+</span> * @class  GA
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ * Proxy module for Google Analitycs
+ *
+ * Require &#39;analitycs.google&#39;
+ *
+ */
+
+<span id='GA-property-config'>/**
+</span> * * **ua**: UA of Google Analitycs. Default: `null`
+ * @type {Object}
+ */
+var config = _.extend({
+	ua: null
+}, Alloy.CFG.ga);
+exports.config = config;
+
+
+var $ = require(&#39;analytics.google&#39;);
+var $TRACKER = null;
+
+
+<span id='GA-method-trackEvent'>/**
+</span> * Track an event
+ *
+ * @param  {String} cat The category **or the object passed to the module**
+ * @param  {String} act The action associated
+ * @param  {String} lbl The label associated
+ * @param  {String} val The value associated
+ */
+function trackEvent(cat, act, lbl, val){
+	if (!$TRACKER) return;
+
+	if (_.isObject(cat)) {
+		$TRACKER.trackEvent(cat);
+	} else {
+
+		var obj = {};
+		obj.category = cat;
+		obj.action = act;
+		obj.label = lbl ? lbl : &#39;&#39;;
+		obj.value = val ? +val : 0;
+
+		$TRACKER.trackEvent(obj);
+	}
+}
+exports.trackEvent = trackEvent;
+
+<span id='GA-method-event'>/**
+</span> * @method event
+ * @inheritDoc #trackEvent
+ * Alias for {@link #trackEvent}
+ */
+exports.event = trackEvent;
+
+
+<span id='GA-method-trackScreen'>/**
+</span> * Track a screen
+ *
+ * @param  {String} name The screen name
+ */
+function trackScreen(name){
+	if (!$TRACKER) return;
+
+	$TRACKER.trackScreen(name);
+}
+exports.trackScreen = trackScreen;
+
+<span id='GA-method-screen'>/**
+</span> * @method screen
+ * @inheritDoc #trackScreen
+ * Alias for {@link #trackScreen}
+ */
+exports.screen = trackScreen;
+
+
+<span id='GA-method-trackSocial'>/**
+</span> * Track a social action
+ *
+ * @param  {String} net The social network: facebook, twitter, googleplus...
+ * @param  {String} act The action associated
+ * @param  {String} tar The target associated
+ */
+function trackSocial(net, act, tar){
+	if (!$TRACKER) return;
+
+	if (_.isObject(net)) {
+		$TRACKER.trackSocial(net);
+	} else {
+
+		var obj = {};
+		obj.network = net;
+		obj.action = act || &#39;share&#39;;
+		obj.target = tar || &#39;&#39;;
+
+		$TRACKER.trackSocial(obj);
+	}
+}
+exports.trackSocial = trackSocial;
+
+<span id='GA-method-social'>/**
+</span> * @method social
+ * @inheritDoc #trackSocial
+ * Alias for {@link #trackSocial}
+ */
+exports.social = trackSocial;
+
+<span id='GA-method-setTrackerUA'>/**
+</span> * Set the tracker UA.
+ * @param {String} ua
+ */
+function setTrackerUA(ua) {
+	$TRACKER = $.getTracker(ua);
+}
+exports.setTrackerUA = setTrackerUA;
+
+
+(function init(){
+	$.trackUncaughtExceptions = true;
+	$.debug = false;
+
+	if (config.ua) {
+		setTrackerUA(config.ua);
+	}
+})();
+</pre>
+</body>
+</html>

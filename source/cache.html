@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='Cache'>/**
+</span> * @class  Cache
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ * Fast cache module using SQLite
+ */
+
+<span id='Cache-property-config'>/**
+</span> * @type {Object}
+ */
+var config = _.extend({}, Alloy.CFG.cache);
+exports.config = config;
+
+
+var DB = null;
+
+function __get(id) {
+	if (!DB) {
+		Ti.API.error(&quot;Cache: database not open.&quot;);
+		return false;
+	}
+
+	var row = DB.execute(&#39;SELECT expire FROM cache WHERE id = ? LIMIT 1&#39;, id);
+	if (!row.isValidRow()) return false;
+
+	var expire = row.field(0) || 0;
+	var now = require(&#39;util&#39;).timestamp();
+	if (expire!==-1 &amp;&amp; now&gt;expire) return false;
+
+	row = DB.execute(&#39;SELECT value FROM cache WHERE id = ? LIMIT 1&#39;, id);
+	if (!row.isValidRow()) return false;
+
+	return require(&#39;util&#39;).parseJSON(row.field(0));
+}
+
+<span id='Cache-method-get'>/**
+</span> * Get the property or set if not present
+ *
+ * @param  {String} id     The unique key
+ * @param  {Object|Function} value  Value to set if the property is absent/expired
+ * @param  {Number} expire TTL of this property,expressed is seconds from now
+ * @return {Mixed}
+ */
+function get(id, value, expire) {
+	var databaseValue = __get(id);
+	if (databaseValue) return databaseValue;
+
+	if (!value) return false;
+	if (_.isFunction(value)) value = value();
+
+	set(id, value, expire);
+	return value;
+}
+exports.get = get;
+
+
+<span id='Cache-method-set'>/**
+</span> * Set the property
+ *
+ * @param {String} id     The unique key
+ * @param {Mixed} value  Value to set
+ * @param {Integer} expire TTL of this property, expressed is seconds from now
+ */
+function set(id, value, expire) {
+	if (!DB) {
+		Ti.API.error(&quot;Cache: database not open.&quot;);
+		return false;
+	}
+
+	if (expire) {
+		expire = require(&#39;util&#39;).timestamp() + parseInt(expire, 10);
+	} else {
+		expire = -1;
+	}
+	DB.execute(&#39;INSERT OR REPLACE INTO cache (id, expire, value) VALUES (?,?,?)&#39;, id, expire, JSON.stringify(value));
+}
+exports.set = set;
+
+
+(function init(c) {
+	DB = require(&#39;db&#39;).open();
+	if (DB) {
+		DB.execute(&#39;CREATE TABLE IF NOT EXISTS cache (id TEXT PRIMARY KEY, expire INTEGER, value TEXT)&#39;);
+	}
+})();
+</pre>
+</body>
+</html>

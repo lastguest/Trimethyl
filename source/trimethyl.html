@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='Trimethyl'>/**
+</span> * @class  Trimethyl
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ * The framework initializator
+ */
+
+
+var Util = require(&#39;util&#39;);
+var launchURL = Util.parseSchema();
+var pauseURL = null;
+
+
+if (OS_IOS) {
+
+	Ti.App.addEventListener(&#39;pause&#39;, function(){
+		pauseURL = launchURL;
+		Ti.App.fireEvent(&#39;app.paused&#39;);
+	});
+
+	Ti.App.addEventListener(&#39;resumed&#39;, function() {
+		launchURL = Util.parseSchema();
+		if (launchURL!==pauseURL) {
+			Ti.App.fireEvent(&#39;app.resumed&#39;, { url: launchURL });
+		}
+	});
+
+}
+
+var Device 	= require(&#39;device&#39;);
+
+// Set some TSS vars
+
+Alloy.Globals.SCREEN_WIDTH 		= Device.getScreenWidth();
+Alloy.Globals.SCREEN_HEIGHT 		= Device.getScreenHeight();
+Alloy.Globals.SCREEN_DENSITY 		= Device.getScreenDensity();
+Alloy.Globals.IOS7 					= Util.isIOS7();
+
+// Prototype!
+
+String.prototype.zeroFy = function(n) {
+	if (this.length&lt;=n) {
+		var zeros = &#39;&#39;; for (var i=0; i&lt;n; i++) zeros += &#39;0&#39;;
+		return zeros + this.toString();
+	}
+	return this.toString();
+};</pre>
+</body>
+</html>

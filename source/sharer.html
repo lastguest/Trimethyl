@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='Sharer'>/**
+</span> * @class  Sharer
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ * Provide functions to simplify sharing across platforms and social networks
+ *
+ * Require `dn.napp.social`
+ *
+ * Documentation:
+ * https://github.com/viezel/TiSocial.Framework
+ *
+ * Be more Social on your app! ;)
+ *
+ */
+
+<span id='Sharer-property-config'>/**
+</span> * @type {Object}
+ */
+var config = _.extend({}, Alloy.CFG.sharer);
+exports.config = config;
+
+
+var callback = null;
+var dkNappSocial = null;
+
+if (OS_IOS) {
+	dkNappSocial = require(&#39;dk.napp.social&#39;);
+	dkNappSocial.addEventListener(&#39;complete&#39;, onSocialComplete);
+	dkNappSocial.addEventListener(&#39;cancelled&#39;, onSocialCancel);
+}
+
+function onSocialComplete(e) {
+	if (!callback) return;
+	e.type = &#39;complete&#39;;
+	if (e.activityName) e.platform = e.activityName;
+	callback(e);
+}
+
+function onSocialCancel(e) {
+	if (!callback) return;
+	e.type = &#39;cancelled&#39;;
+	if (e.activityName) e.platform = e.activityName;
+	callback(e);
+}
+
+function parseArgs(args) {
+	if (!args) return {};
+
+	if (args.image) {
+		if (typeof args.image === &#39;object&#39;) {
+			if (args.image.resolve) {
+				args.imageBlob = args.image;
+				args.image = args.imageBlob.resolve();
+			} else if (args.image.nativePath) {
+				args.imageBlob = args.image;
+				args.image = args.imageBlob.nativePath;
+			} else {
+				delete args.image;
+			}
+		} else if (args.image.indexOf(&#39;://&#39;)) {
+			args.imageUrl = args.image;
+		}
+	}
+
+	if (args.link) {
+		args.url = args.link;
+		delete args.link;
+	}
+
+	if (args.removeIcons &amp;&amp; args.removeIcons==&#39;ALL&#39;) {
+		args.removeIcons = &#39;print,sms,copy,contact,camera,readinglist&#39;;
+	}
+
+	if (args.text &amp;&amp; args.url) args.fullText = args.text + &#39; (&#39; + args.url + &#39;)&#39;;
+	else if (args.text) args.fullText = args.text;
+	else if (args.url) args.fullText = args.url;
+
+	delete args.callback;
+	return args;
+}
+
+<span id='Sharer-method-webviewShare'>/**
+</span> * Open the following url inside the app, in a webview
+ * @param  {String} url The URL to open
+ */
+function webviewShare(url) {
+	require(&#39;ui&#39;).createModalWebView({
+		title: L(&#39;Share&#39;),
+		url: url
+	}).open();
+}
+exports.webviewShare = webviewShare;
+
+<span id='Sharer-method-webview'>/**
+</span> * @method  webview
+ * @inheritDoc #webviewShare
+ * Alias for {@link #webviewShare}
+ */
+exports.webview = webviewShare;
+
+
+<span id='Sharer-method-shareOnFacebook'>/**
+</span> * Share on Facebook
+ * @param {Object} args
+ */
+function shareOnFacebook(args) {
+	callback = args.callback || null;
+	args = parseArgs(args);
+
+	// iOS Sharer doesn&#39;t share Facebook links
+	if (args.url &amp;&amp; args.url.match(/https?\:\/\/(www\.)?facebook\.com/)) {
+		args.useSDK = true;
+	}
+
+	if (OS_IOS &amp;&amp; dkNappSocial.isFacebookSupported() &amp;&amp; !args.useSDK) {
+
+		dkNappSocial.facebook({
+			text: args.text,
+			image: args.image,
+			url: args.url
+		});
+
+	} else {
+
+		var FB = require(&#39;facebook&#39;);
+
+		if (!FB.appid) {
+			if (Ti.App.Properties.hasProperty(&#39;ti.facebook.appid&#39;)) {
+				FB.appid = Ti.App.Properties.getString(&#39;ti.facebook.appid&#39;, false);
+			} else {
+				Ti.API.error(&quot;Sharer: please specify a Facebook AppID&quot;);
+			}
+		}
+
+		FB.dialog(&#39;feed&#39;, {
+			name: args.title,
+			description: args.text,
+			link: args.url,
+			picture: args.imageUrl
+		}, function(e) {
+
+			if (!e.cancelled) {
+				onSocialComplete({
+					success: e.success,
+					platform: &#39;facebook&#39;
+				});
+			} else {
+				onSocialCancel({
+					success: false,
+					platform: &#39;facebook&#39;
+				});
+			}
+
+		});
+
+	}
+}
+exports.shareOnFacebook = shareOnFacebook;
+
+<span id='Sharer-method-facebook'>/**
+</span> * @method facebook
+ * @inheritDoc #shareOnFacebook
+ * Alias for {@link #shareOnFacebook}
+ */
+exports.facebook = shareOnFacebook;
+
+<span id='Sharer-method-shareOnTwitter'>/**
+</span> * Share on Twitter
+ * @param {Object} args
+ */
+function shareOnTwitter(args) {
+	callback = args.callback || null;
+	parseArgs(args);
+
+	var WEB_URL = &#39;http://www.twitter.com/intent&#39;;
+	var webIntent;
+	if (args.retweet) {
+		webIntent = WEB_URL+&#39;/retweet?tweet_id=&#39;+args.retweet;
+	} else {
+		webIntent = WEB_URL+&#39;/tweet&#39;+require(&#39;util&#39;).buildQuery({
+			text: args.text,
+			url: args.url
+		});
+	}
+
+
+	if (OS_ANDROID) {
+
+		try {
+			Ti.Platform.openURL(webIntent);
+		} catch (e) {}
+
+	} else if (OS_IOS &amp;&amp; dkNappSocial.isTwitterSupported() &amp;&amp; !args.retweet) {
+
+		dkNappSocial.twitter({
+			text: args.text,
+			image: args.image,
+			url: args.url
+		});
+
+	} else {
+
+		require(&#39;util&#39;).openURL(&#39;twitter://post?message=&#39;+encodeURIComponent(args.fullText), webIntent);
+
+	}
+
+}
+exports.twitter = shareOnTwitter;
+
+<span id='Sharer-method-twitter'>/**
+</span> * @method twitter
+ * @inheritDoc #shareOnTwitter
+ * Alias for {@link #shareOnTwitter}
+ */
+exports.twitter = shareOnTwitter;
+
+<span id='Sharer-method-shareViaMail'>/**
+</span> * Share via Mail
+ * @param {Object} args
+ */
+function shareViaMail(args) {
+	callback = args.callback || null;
+	args = parseArgs(args);
+
+	var $dialog = Ti.UI.createEmailDialog({
+		subject: args.title,
+		messageBody: args.fullText,
+	});
+
+	if (args.imageBlob) {
+		$dialog.addAttachment(args.imageBlob);
+	}
+
+	$dialog.addEventListener(&#39;complete&#39;, function(e) {
+		if (e.result===this.CANCELLED) {
+			onSocialCancel({
+				success: false,
+				platform: &#39;mail&#39;
+			});
+		} else {
+			onSocialComplete({
+				success: (e.result===this.SENT),
+				platform: &#39;mail&#39;
+			});
+		}
+	});
+
+	$dialog.open();
+}
+exports.shareViaMail = shareViaMail;
+
+<span id='Sharer-method-mail'>/**
+</span> * @method  mail
+ * @inheritDoc #shareViaMail
+ * Alias for {@link #shareViaMail}
+ */
+exports.mail = shareViaMail;
+
+
+<span id='Sharer-method-shareOnGooglePlus'>/**
+</span> * Share on Google Plus
+ * @param {Object} args
+ */
+function shareOnGooglePlus(args) {
+	args = parseArgs(args);
+	if (!args.url) {
+		Ti.API.error(&quot;Sharer: sharing on G+ require a URL&quot;);
+		return;
+	}
+
+	try {
+		Ti.Platform.openURL(&quot;https://plus.google.com/share?url=&quot;+encodeURIComponent(args.url));
+	} catch (e) {}
+}
+exports.shareOnGooglePlus = shareOnGooglePlus;
+
+<span id='Sharer-method-shareOnWhatsApp'>/**
+</span> * Share via Whatsapp
+ * @param {Object} args
+ */
+function shareOnWhatsApp(args) {
+	args = parseArgs(args);
+
+	try {
+		Ti.Platform.openURL(&#39;whatsapp://send?text=&#39;+args.fullText);
+	} catch (e) {}
+}
+exports.shareOnWhatsApp = shareOnWhatsApp;
+
+
+<span id='Sharer-method-activity'>/**
+</span> * Share using iOS ActivityPopover or Android Intents
+ * @param {Object} args
+ */
+function activity(args) {
+	callback = args.callback || null;
+	args = parseArgs(args);
+
+	if (OS_IOS) {
+
+		Social[Ti.Platform.osname==&#39;ipad&#39;?&#39;activityPopover&#39;:&#39;activityView&#39;]
+		({
+			text: args.text,
+			title: args.title,
+			image: args.image,
+			removeIcons: args.removeIcons,
+			view: args.view,
+			url: args.url
+		}, args.customIcons || []);
+
+	} else if (OS_ANDROID) {
+
+		/*
+		Facebook bug with EXTRA_TEXT
+		https://developers.facebook.com/bugs/332619626816423
+		*/
+
+		var intent = Ti.Android.createIntent({ action: Ti.Android.ACTION_SEND });
+
+		if (args.fullText) intent.putExtra(Ti.Android.EXTRA_TEXT, args.fullText);
+		if (args.title) intent.putExtra(Ti.Android.EXTRA_TITLE, args.title);
+		if (args.image) intent.putExtraUri(Ti.Android.EXTRA_STREAM, args.image);
+
+		Ti.Android.currentActivity.startActivity(Ti.Android.createIntentChooser(intent, L(&#39;Share&#39;)));
+
+	}
+}
+
+exports.activity = activity;
+exports.multi = activity;
+</pre>
+</body>
+</html>
