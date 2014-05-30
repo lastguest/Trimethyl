@@ -15,8 +15,8 @@
   </script>
 </head>
 <body onload="prettyPrint(); highlight();">
-  <pre class="prettyprint lang-js"><span id='UI'>/**
-</span> * @class  UI
+  <pre class="prettyprint lang-js"><span id='XP-UI'>/**
+</span> * @class  XP.UI
  * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
  * Provide **CROSS-PLATFORM** UI elements to handle differences between platforms
  *
@@ -97,7 +97,7 @@ if (!OS_IOS) {
 
 }
 
-<span id='UI-method-createNavigationWindow'>/**
+<span id='XP-UI-method-createNavigationWindow'>/**
 </span> * @method  createNavigationWindow
  *
  * ## iOS
@@ -120,7 +120,7 @@ exports.createNavigationWindow = function(args) {
 
 /* ============ WINDOW ============= */
 
-<span id='UI-method-createWindow'>/**
+<span id='XP-UI-method-createWindow'>/**
 </span> * @method createWindow
  *
  * ## iOS
@@ -228,13 +228,15 @@ function __enableAutoFocus(e) {
 	e.source.softKeyboardOnFocus = Ti.UI.Android.SOFT_KEYBOARD_SHOW_ON_FOCUS;
 }
 
-<span id='UI-method-createTextField'>/**
+<span id='XP-UI-method-createTextField'>/**
 </span> * @method  createTextField
  *
  * Added methods:
+ *
  * * **getRealValue()**: get the effective value when using hintText hack
  *
  * Added properties:
+ *
  * * **textType**: Can be *email* or *password*, and adjust the keyboard or the mask automatically.
  * * **hintTextColor**: Color support the the hintText
  * * **realValue**: get the effective value when using hintText hack
@@ -292,13 +294,15 @@ exports.createTextField = function(args) {
 };
 
 
-<span id='UI-method-createTextArea'>/**
+<span id='XP-UI-method-createTextArea'>/**
 </span> * @method  createTextArea
  *
  * Added methods:
+ *
  * * **getRealValue()**: get the effective value when using hintText hack
  *
  * Added properties:
+ *
  * * **hintTextColor**: Color support the the hintText
  * * **realValue**: get the effective value when using hintText hack
  *
@@ -394,7 +398,7 @@ function simpleHTMLParser(text) {
 }
 
 
-<span id='UI-method-createLabel'>/**
+<span id='XP-UI-method-createLabel'>/**
 </span> * @method createLabel
  *
  * ## iOS
