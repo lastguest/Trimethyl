@@ -137,12 +137,13 @@ exports.getFacebookAvatar = function(fbid, w, h) {
  *
  * Set the `app.itunes` and `app.id` in the **config.json**
  *
+ * @param {String} appid Application ID (default read config.json)
  */
-exports.reviewInStore = function() {
+exports.reviewInStore = function(appid) {
 	if (OS_IOS) {
-		Ti.Platform.openURL(&#39;itms-apps://itunes.apple.com/app/id&#39;+Alloy.CFG.app.itunes);
+		Ti.Platform.openURL(&#39;https://itunes.apple.com/app/id&#39; + ( appid || Alloy.CFG.app.itunes ) );
 	} else if (OS_ANDROID) {
-		Ti.Platform.openURL(&#39;https://play.google.com/store/apps/details?id=&#39;+Alloy.CFG.app.id+&#39;&amp;reviewId=0&#39;);
+		Ti.Platform.openURL(&#39;https://play.google.com/store/apps/details?id=&#39; + ( appid || Alloy.CFG.app.id ) + &#39;&amp;reviewId=0&#39;);
 	}
 };
 
