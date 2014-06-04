@@ -40,8 +40,8 @@ var config = _.extend({
 }, Alloy.CFG.net);
 exports.config = config;
 
+var NetCache = null;
 
-var DB = null;
 var queue = {};
 var serverConnected = null;
 var errorHandler = null;
@@ -53,78 +53,11 @@ function calculateHash(request) {
 	return Ti.Utils.md5HexDigest(request.url+JSON.stringify(request.data||{})+JSON.stringify(request.headers||{}));
 }
 
-function writeCache(request, response, info) {
-	if (!DB) {
-		Ti.API.error(&quot;NetworkCache: database not open.&quot;);
-		return false;
-	}
-
-	DB.execute(&#39;INSERT OR REPLACE INTO net (id, expire, creation, content, info) VALUES (?,?,?,?,?)&#39;,
-		request.hash,
-		info.expire,
-		require(&#39;util&#39;).timestamp(),
-		response.responseData,
-		JSON.stringify(info)
-		);
-
-	if (ENV_DEVELOPMENT &amp;&amp; config.debug) {
-		Ti.API.debug(&quot;NetworkCache: Cache written successfully.&quot;);
-	}
-}
-
-function getCache(request, bypassExpiration) {
-	if (!DB) {
-		Ti.API.error(&quot;NetworkCache: database not open.&quot;);
-		return false;
-	}
-
-	if (request.refresh || request.cache===false) {
-		if (ENV_DEVELOPMENT &amp;&amp; config.debug) {
-			Ti.API.debug(&quot;NetworkCache: request cache forced to refresh&quot;);
-		}
-		return false;
-	}
-
-	var cacheRow = DB.execute(&#39;SELECT expire, creation FROM net WHERE id = ? LIMIT 1&#39;, request.hash);
-	if (!cacheRow || !cacheRow.isValidRow()) {
-		Ti.API.debug(&quot;NetworkCache: cache not found&quot;);
-		return false;
-	}
-
-	var expire = +cacheRow.fieldByName(&#39;expire&#39;) || 0;
-	var creation = +cacheRow.fieldByName(&#39;creation&#39;) || 0;
-	var now = require(&#39;util&#39;).timestamp();
-
-	if (!bypassExpiration) {
-		if (ENV_DEVELOPMENT &amp;&amp; config.debug) {
-			Ti.API.debug(&quot;NetworkCache: cache values are &quot;+expire+&quot; - &quot;+now+&quot; = &quot;+(expire-now)+&quot;s&quot;);
-		}
-		if (expire&lt;now) {
-			return false;
-		}
-	}
-
-	var cache = DB.execute(&#39;SELECT info, content FROM net WHERE id = ? LIMIT 1&#39;, request.hash);
-	var content = cache.fieldByName(&#39;content&#39;);
-	if (!content) {
-		Ti.API.error(&quot;NetworkCache: invalid cache content&quot;);
-		return false;
-	}
-
-	var info = require(&#39;util&#39;).parseJSON(cache.fieldByName(&#39;info&#39;)) || {};
-	if (info &amp;&amp; info.mime==&#39;json&#39;) {
-		return require(&#39;util&#39;).parseJSON(content);
-	} else {
-		return content;
-	}
-}
-
 function setApplicationInfo(appInfo) {
 	_.each(appInfo, function(v,k){
 		Ti.App.Properties.setString(&#39;settings.&#39;+k, v);
 	});
 }
-
 
 <span id='Net-method-setErrorHandler'>/**
 </span> * Set a new global handler for the errors
@@ -227,7 +160,7 @@ function onComplete(request, response, e){
 	if (request.expire) info.expire = request.expire;
 
 	if (ENV_DEVELOPMENT &amp;&amp; config.debug) {
-		Ti.API.debug(&quot;Network: response informations are &quot;+JSON.stringify(info));
+		Ti.API.debug(&quot;Net: response informations are &quot;+JSON.stringify(info));
 	}
 
 	var returnValue = null;
@@ -247,14 +180,12 @@ function onComplete(request, response, e){
 		*/
 
 		if (ENV_DEVELOPMENT &amp;&amp; config.debug) {
-			Ti.API.debug(&quot;Network: response success&quot;);
+			Ti.API.debug(&quot;Net: response success&quot;);
 		}
 
 		// Write cache
-		if (config.useCache &amp;&amp; request.cache!==false) {
-			if (request.method==&#39;GET&#39; &amp;&amp; info.expire&gt;0) {
-				writeCache(request, response, info);
-			}
+		if (NetCache &amp;&amp; request.cache!==false &amp;&amp; request.method==&#39;GET&#39; &amp;&amp; info.expire&gt;0) {
+			NetCache.set(request, response, info);
 		}
 
 		// Success callback
@@ -268,7 +199,7 @@ function onComplete(request, response, e){
 		*/
 
 		if (ENV_DEVELOPMENT &amp;&amp; config.debug) {
-			Ti.API.error(&quot;Network: error -&gt; &quot;+JSON.stringify(response));
+			Ti.API.error(&quot;Net: error -&gt; &quot;+JSON.stringify(response));
 		}
 
 		// Parse the error returned from the server
@@ -431,25 +362,22 @@ function abortRequest(hash) {
 	if (!httpClient) return;
 	try {
 		httpClient.abort();
-		Ti.API.debug(&quot;Network: request aborted&quot;);
+		Ti.API.debug(&quot;Net: request aborted&quot;);
 	} catch (e) {
-		Ti.API.error(&quot;Network: aborting request error, &quot;+e);
+		Ti.API.error(&quot;Net: aborting request error, &quot;+e);
 	}
 }
 exports.abortRequest = abortRequest;
 
-<span id='Net-method-resetCache'>/**
-</span> * Clear **ALL** cache
- */
-function resetCache() {
-	if (!DB) {
-		Ti.API.error(&quot;NetworkCache: database not open.&quot;);
-		return false;
-	}
 
-	DB.execute(&#39;DELETE FROM net&#39;);
-}
-exports.resetCache = resetCache;
+<span id='Net-method-resetCache'>/**
+</span> * @method resetCache
+ * Alias for @{@link #net.cache.reset}
+ */
+exports.resetCache = function(){
+	if (!NetCache) return;
+	NetCache.reset();
+};
 
 
 <span id='Net-method-resetCookies'>/**
@@ -469,14 +397,11 @@ exports.resetCookies = resetCookies;
  * @param  {String|Object} request [description]
  */
 exports.deleteCache = function(hash) {
-	if (!DB) {
-		Ti.API.error(&quot;NetworkCache: database not open.&quot;);
-		return false;
-	}
-
+	if (!NetCache) return;
 	if (_.isObject(hash)) hash = decorateRequest(hash).hash;
-	DB.execute(&#39;DELETE FROM net WHERE id = ?&#39;, hash);
+	NetCache.del(hash);
 };
+
 
 <span id='Net-method-send'>/**
 </span> * The main function of the module, create the HTTPClient and make the request
@@ -500,13 +425,13 @@ function send(request) {
 	request = decorateRequest(request);
 
 	if (ENV_DEVELOPMENT &amp;&amp; config.debug) {
-		Ti.API.debug(&quot;Network: making request -&gt; &quot;+JSON.stringify(request));
+		Ti.API.debug(&quot;Net: making request -&gt; &quot;+JSON.stringify(request));
 	}
 
 	// Try to get the cache, otherwise make the HTTP request
-	if (config.useCache &amp;&amp; request.cache!==false &amp;&amp; request.method==&#39;GET&#39;) {
+	if (NetCache &amp;&amp; request.cache!==false &amp;&amp; request.method==&#39;GET&#39;) {
 
-		var cache = getCache(request, !Ti.Network.online);
+		var cache = NetCache.get(request, !Ti.Network.online);
 		if (cache) {
 
 			// if we are offline, but we got cache, fire event to handle
@@ -521,7 +446,7 @@ function send(request) {
 			}
 
 			if (ENV_DEVELOPMENT &amp;&amp; config.debug) {
-				Ti.API.debug(&quot;Network: success from cache&quot;);
+				Ti.API.debug(&quot;Net: success from cache&quot;);
 			}
 
 			request.success(cache);
@@ -651,12 +576,11 @@ exports.postJSON = function(url, data, success, error) {
 
 
 (function init(){
+
 	if (config.useCache) {
-		DB = require(&#39;db&#39;).open();
-		if (DB) {
-			DB.execute(&#39;CREATE TABLE IF NOT EXISTS net (id TEXT PRIMARY KEY, expire INTEGER, creation INTEGER, content TEXT, info TEXT)&#39;);
-		}
+		NetCache = require(&#39;net.cache&#39;);
 	}
+
 })();
 </pre>
 </body>

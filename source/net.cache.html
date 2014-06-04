@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='Net-Cache'>/**
+</span> * @class  Net.Cache
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ * Network Cache module
+ */
+
+<span id='Net-Cache-property-config'>/**
+</span> * @type {Object}
+ */
+var config = _.extend({
+	debug: true
+}, Alloy.CFG.net ? Alloy.CFG.net.cache : {});
+exports.config = config;
+
+var DB = null;
+
+
+<span id='Net-Cache-method-set'>/**
+</span> * Write the cache
+ * @param  {Object} request  The network request
+ * @param  {[type]} response The network response
+ * @param  {[type]} info     [The network informations
+ */
+function set(request, response, info) {
+	if (!DB) {
+		Ti.API.error(&quot;Net.Cache: database not open.&quot;);
+		return false;
+	}
+
+	DB.execute(&#39;INSERT OR REPLACE INTO net (id, expire, creation, content, info) VALUES (?,?,?,?,?)&#39;,
+		request.hash,
+		info.expire,
+		require(&#39;util&#39;).timestamp(),
+		response.responseData,
+		JSON.stringify(info)
+		);
+
+	if (ENV_DEVELOPMENT &amp;&amp; config.debug) {
+		Ti.API.debug(&quot;Net.Cache: Cache written successfully.&quot;);
+	}
+}
+exports.set = set;
+
+
+<span id='Net-Cache-method-get'>/**
+</span> * Get the associated cache to that request
+ * @param  {Object} request          		The network request
+ * @param  {Boolean} [bypassExpiration] 	Control if bypassing the expiration check
+ * @return {Object}
+ */
+function get(request, bypassExpiration) {
+	if (!DB) {
+		Ti.API.error(&quot;Net.Cache: database not open.&quot;);
+		return false;
+	}
+
+	if (request.refresh || request.cache===false) {
+		if (ENV_DEVELOPMENT &amp;&amp; config.debug) {
+			Ti.API.debug(&quot;Net.Cache: request cache forced to refresh&quot;);
+		}
+		return false;
+	}
+
+	var cacheRow = DB.execute(&#39;SELECT expire, creation FROM net WHERE id = ? LIMIT 1&#39;, request.hash);
+	if (!cacheRow || !cacheRow.isValidRow()) {
+		Ti.API.debug(&quot;Net.Cache: cache not found&quot;);
+		return false;
+	}
+
+	var expire = +cacheRow.fieldByName(&#39;expire&#39;) || 0;
+	var creation = +cacheRow.fieldByName(&#39;creation&#39;) || 0;
+	var now = require(&#39;util&#39;).timestamp();
+
+	if (!bypassExpiration) {
+		if (ENV_DEVELOPMENT &amp;&amp; config.debug) {
+			Ti.API.debug(&quot;Net.Cache: cache values are &quot;+expire+&quot; - &quot;+now+&quot; = &quot;+(expire-now)+&quot;s&quot;);
+		}
+		if (expire&lt;now) {
+			return false;
+		}
+	}
+
+	var cache = DB.execute(&#39;SELECT info, content FROM net WHERE id = ? LIMIT 1&#39;, request.hash);
+	var content = cache.fieldByName(&#39;content&#39;);
+	if (!content) {
+		Ti.API.error(&quot;Net.Cache: invalid cache content&quot;);
+		return false;
+	}
+
+	var info = require(&#39;util&#39;).parseJSON(cache.fieldByName(&#39;info&#39;)) || {};
+	if (info &amp;&amp; info.mime==&#39;json&#39;) {
+		return require(&#39;util&#39;).parseJSON(content);
+	} else {
+		return content;
+	}
+}
+exports.get = get;
+
+
+<span id='Net-Cache-method-reset'>/**
+</span> * Reset all cache
+ */
+function reset() {
+	if (!DB) {
+		Ti.API.error(&quot;Net.Cache: database not open.&quot;);
+		return false;
+	}
+
+	DB.execute(&#39;DELETE FROM net&#39;);
+}
+exports.reset = reset;
+
+
+<span id='Net-Cache-method-del'>/**
+</span> * Delete the cache entry for the passed request
+ * @param  {String|Object} request [description]
+ */
+function del(hash) {
+	if (!DB) {
+		Ti.API.error(&quot;Net.Cache: database not open.&quot;);
+		return false;
+	}
+
+	DB.execute(&#39;DELETE FROM net WHERE id = ?&#39;, hash);
+}
+exports.del = del;
+
+
+(function init(){
+
+	DB = require(&#39;db&#39;).open();
+	if (DB) {
+		DB.execute(&#39;CREATE TABLE IF NOT EXISTS net (id TEXT PRIMARY KEY, expire INTEGER, creation INTEGER, content TEXT, info TEXT)&#39;);
+	}
+
+})();</pre>
+</body>
+</html>

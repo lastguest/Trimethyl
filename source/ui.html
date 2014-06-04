@@ -78,24 +78,27 @@ exports.createYoutubeVideoWebView = function(args){
 	args.willHandleTouches = true;
 	args.showScrollbars = false;
 	args.scalesPageToFit = false;
+	args.hideLoadIndicator = true;
+	args.enableZoomControls = false;
 
 	if (OS_ANDROID) {
 		args.overScrollMode = Ti.UI.Android.OVER_SCROLL_NEVER;
-		args.pluginState = Titanium.UI.Android.WEBVIEW_PLUGINS_ON;
-		args.enableZoomControls = false;
+		args.pluginState = Ti.UI.Android.WEBVIEW_PLUGINS_ON;
 	}
 
+	args.youtube = args.youtube || {};
 	if (!args.youtube.width) args.youtube.width = args.width;
 	if (!args.youtube.height) args.youtube.height = args.height;
-	args.height += 5;
 
 	var $ui = Ti.UI.createWebView(args);
 
-	var html = &#39;&lt;!doctype html&gt;&lt;html style=&quot;margin:0&quot;&gt;&lt;head&gt;&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, user-scalable=no&quot;&gt;&lt;/head&gt;&lt;body style=&quot;margin:0&quot;&gt;&lt;div id=&quot;player&quot;&gt;&lt;/div&gt;&#39;;
+	var html = &#39;&lt;!doctype html&gt;&lt;html&gt;&lt;head&gt;&#39;;
+	html += &#39;&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1,user-scalable=no&quot; /&gt;&#39;;
+	html += &#39;&lt;style&gt;html,body{padding:0;background:black;margin:0;overflow:hidden;}&lt;/style&gt;&#39;;
+	html += &#39;&lt;/head&gt;&lt;body&gt;&lt;div id=&quot;player&quot;&gt;&lt;/div&gt;&#39;;
 	html += &#39;&lt;script src=&quot;http://www.youtube.com/player_api&quot;&gt;&lt;/script&gt;&#39;;
-	html += &#39;&lt;script&gt;function onYouTubePlayerAPIReady() { window.player = new YT.Player(&quot;player&quot;,&#39;+JSON.stringify(args.youtube) + &#39;); }&lt;/script&gt;&#39;;
+	html += &#39;&lt;script&gt;function onYouTubePlayerAPIReady(){window.player=new YT.Player(&quot;player&quot;,&#39;+JSON.stringify(args.youtube)+&#39;);}&lt;/script&gt;&#39;;
 	html += &#39;&lt;/body&gt;&lt;/html&gt;&#39;;
-
 	$ui.html = html;
 
 	return $ui;
