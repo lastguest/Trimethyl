@@ -118,6 +118,17 @@ exports.openTwitterProfile = function(twid) {
 };
 
 
+<span id='Util-method-openTwitterStatus'>/**
+</span> * @method  openTwitterStatus
+ * Open a Twitter status in the Twitter application
+ * @param  {String} userid   The user id
+ * @param  {String} statusid The status id
+ */
+exports.openTwitterStatus = function(userid, statusid) {
+	return openURL(&quot;twitter://status?id=&quot;+statusid, &quot;http://twitter.com/&quot;+userid+&quot;/statuses/&quot;+statusid);
+};
+
+
 <span id='Util-method-getFacebookAvatar'>/**
 </span> * Get the Facebook avatar from the graph
  *

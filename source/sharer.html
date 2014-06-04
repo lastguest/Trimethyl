@@ -206,18 +206,19 @@ function shareOnTwitter(args) {
 			Ti.Platform.openURL(webIntent);
 		} catch (e) {}
 
-	} else if (OS_IOS &amp;&amp; dkNappSocial.isTwitterSupported() &amp;&amp; !args.retweet) {
+	} else if (OS_IOS &amp;&amp; dkNappSocial.isTwitterSupported()) {
+
+		var text = args.text;
+		if (args.retweetUser) text = &#39;RT @&#39;+args.retweetUser+&#39;: &#39;+text;
 
 		dkNappSocial.twitter({
-			text: args.text,
+			text: text,
 			image: args.image,
 			url: args.url
 		});
 
 	} else {
-
 		require(&#39;util&#39;).openURL(&#39;twitter://post?message=&#39;+encodeURIComponent(args.fullText), webIntent);
-
 	}
 
 }
