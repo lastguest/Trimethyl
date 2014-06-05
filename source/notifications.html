@@ -18,7 +18,7 @@
   <pre class="prettyprint lang-js"><span id='Notifications'>/**
 </span> * @class  Notifications
  * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
- * Handle notifications system for both platform using Ti.Cloud
+ * Handle notifications system for both platform
  */
 
 
@@ -26,47 +26,152 @@
 </span> * * **inAppNotification**: Enable the in-app notifications. Default: `true`
  * * **inAppNotificationMethod**: The method of the in-app notification. Must be of of `alert`, `toast`. Default: `toast`
  * * **autoReset**: Check if auto-reset the badge when app is open.
+ * * **driver**: The driver to use. Possible value are `cloud`.
  * @type {Object}
  */
 var config = _.extend({
 	inAppNotification: true,
 	inAppNotificationMethod: &#39;toast&#39;,
-	autoReset: true
+	autoReset: true,
+	driver: &#39;cloud&#39;,
 }, Alloy.CFG.notifications);
 exports.config = config;
 
 
-var Cloud = require(&quot;ti.cloud&quot;);
-Cloud.debug = !ENV_PRODUCTION;
-
-if (OS_ANDROID) {
-	var CloudPush = require(&#39;ti.cloudpush&#39;);
-	CloudPush.debug = !ENV_PRODUCTION;
-	CloudPush.enabled = true;
-	CloudPush.addEventListener(&#39;callback&#39;, onNotificationReceived);
+function getDriver(driver) {
+	return require(&#39;notifications.&#39; + (driver||config.driver) );
 }
+
 
 function onNotificationReceived(e) {
 	Ti.App.fireEvent(&#39;notifications.received&#39;, e);
 
-	// reset the badge
 	if (config.autoReset) {
 		setBadge(0);
 	}
 
 	// Handle foreground notifications
-	if (!e.inBackground &amp;&amp; e.data.alert) {
-		if (config.inAppNotification) {
-
-			if (config.inAppNotificationMethod==&#39;toast&#39;) {
-				require(&#39;toast&#39;).show(e.data.alert);
-			} else if (config.inAppNotificationMethod==&#39;alert&#39;) {
-				alert(e.data.alert);
-			}
-
+	if (!e.inBackground &amp;&amp; config.inAppNotification &amp;&amp; e.data.alert) {
+		if (config.inAppNotificationMethod==&#39;toast&#39;) {
+			require(&#39;toast&#39;).show(e.data.alert);
+		} else if (config.inAppNotificationMethod==&#39;alert&#39;) {
+			require(&#39;util&#39;).simpleAlert(e.data.alert);
 		}
 	}
 }
+
+
+var subscribeFunction;
+var unsubscribeFunction;
+
+if (OS_IOS) {
+
+	subscribeFunction = function(cb) {
+		Ti.Network.registerForPushNotifications({
+			callback: onNotificationReceived,
+			types: [ Ti.Network.NOTIFICATION_TYPE_BADGE, Ti.Network.NOTIFICATION_TYPE_ALERT, Ti.Network.NOTIFICATION_TYPE_SOUND ],
+			success: function(e){
+				if (!e.deviceToken) {
+					Ti.API.error(&quot;Notifications: Unable to get device token; &quot;+e.error);
+					Ti.App.fireEvent(&#39;notifications.subscription.error&#39;, e);
+					return;
+				}
+
+				cb(e.deviceToken);
+
+			},
+			error: function(e){
+				Ti.API.error(&quot;Notifications: &quot;+e.error);
+				Ti.App.fireEvent(&#39;notifications.subscription.error&#39;, e);
+			},
+		});
+	};
+
+	unsubscribeFunction = function(){
+		Ti.Network.unregisterForPushNotifications();
+	};
+
+} else if (OS_ANDROID) {
+
+	var CloudPush = require(&#39;ti.cloudpush&#39;);
+	CloudPush.debug = !ENV_PRODUCTION;
+	CloudPush.enabled = true;
+
+	subscribeFunction = function(cb) {
+		CloudPush.addEventListener(&#39;callback&#39;, onNotificationReceived);
+		CloudPush.retrieveDeviceToken({
+			success: function(e) {
+				if (!e.deviceToken) {
+					Ti.API.error(&quot;Notifications: Unable to get device token; &quot;+e.error);
+					Ti.App.fireEvent(&#39;notifications.subscription.error&#39;, e);
+					return;
+				}
+
+				CloudPush.enabled = true;
+				cb(e.deviceToken);
+
+			},
+			error: function(e) {
+				Ti.API.error(&quot;Notifications: &quot;+e.error);
+				Ti.App.fireEvent(&#39;notifications.subscription.error&#39;, e);
+			}
+		});
+	};
+
+	unsubscribeFunction = function(){
+		CloudPush.removeEventListener(&#39;callback&#39;, onNotificationReceived);
+		CloudPush.enabled = false;
+	};
+
+}
+
+
+<span id='Notifications-method-subscribe'>/**
+</span> * Subscribe for that channell
+ * @param  {String} channel Channel name
+ */
+function subscribe(channel) {
+	if (!subscribeFunction)	{
+		Ti.API.error(&quot;Notifications: No subscribe function is defined&quot;);
+		return;
+	}
+
+	if (ENV_DEVELOPMENT) {
+		Ti.API.debug(&quot;Notifications: Subscribing to push notifications...&quot;);
+	}
+
+	subscribeFunction(function(token){
+		if (ENV_DEVELOPMENT) {
+			Ti.API.debug(&quot;Notifications: Subscribing success; device token is &quot;+token);
+		}
+
+		var driver = getDriver();
+		if (driver) driver.subscribe(token, channel, function(){
+			if (ENV_DEVELOPMENT) {
+				Ti.API.debug(&quot;Notifications: Subscribing success to driver&quot;);
+			}
+		});
+
+	});
+
+}
+exports.subscribe = subscribe;
+
+
+<span id='Notifications-method-unsubscribe'>/**
+</span> * Unsubscribe for that channel
+ * @param  {String} channel Channel name
+ */
+function unsubscribe(channel) {
+	if (!unsubscribeFunction)	{
+		Ti.API.error(&quot;Notifications: No unsubscribe function is defined&quot;);
+		return;
+	}
+
+	var driver = getDriver();
+	if (driver) driver.unsubscribe(channel);
+}
+exports.unsubscribe = unsubscribe;
 
 
 <span id='Notifications-method-setBadge'>/**
@@ -96,6 +201,9 @@ function getBadge() {
 }
 exports.getBadge = getBadge;
 
+
+
+
 <span id='Notifications-method-incBadge'>/**
 </span> * Increment the badge app
  * @param  {Number} i The value to increment
@@ -106,114 +214,16 @@ function incBadge(i) {
 exports.incBadge = incBadge;
 
 
-function cloudSubscribe(channel, deviceToken, callback) {
-	Ti.App.Properties.setString(&#39;notifications.token&#39;, deviceToken);
+(function init(){
 
-	Cloud.PushNotifications.subscribeToken({
-		device_token: deviceToken,
-		channel: channel || &#39;none&#39;,
-		type: (function(){
-			if (OS_IOS) return &#39;ios&#39;;
-			if (OS_ANDROID) return &#39;gcm&#39;;
-		})()
-	}, function (e) {
-		if (!e.success) {
-			return Ti.App.fireEvent(&#39;notifications.subscription.error&#39;, e);
-		}
-
-		Ti.App.fireEvent(&#39;notifications.subscription.success&#39;, { channel: channel });
-		if (callback) callback();
-	});
-}
-
-function subscribeIOS(cb) {
-	Ti.Network.registerForPushNotifications({
-		types: [ Ti.Network.NOTIFICATION_TYPE_BADGE, Ti.Network.NOTIFICATION_TYPE_ALERT, Ti.Network.NOTIFICATION_TYPE_SOUND ],
-		success: function(e){
-			if (!e.deviceToken) {
-				Ti.App.fireEvent(&#39;notifications.subscription.error&#39;, e);
-				return;
-			}
-
-			cb(e.deviceToken);
-		},
-		error: function(e){
-			Ti.App.fireEvent(&#39;notifications.subscription.error&#39;, e);
-		},
-		callback: onNotificationReceived
-	});
-}
-
-function subscribeAndroid(cb) {
-	CloudPush.retrieveDeviceToken({
-		success: function(e) {
-			if (!e.deviceToken) {
-				Ti.App.fireEvent(&#39;notifications.subscription.error&#39;, e);
-				return;
-			}
-
-			CloudPush.enabled = true;
-			cb(e.deviceToken);
-		},
-		error: function(e) {
-			Ti.App.fireEvent(&#39;notifications.subscription.error&#39;, e);
-		}
-	});
-}
-
-<span id='Notifications-method-subscribe'>/**
-</span> * Subscribe for that channell
- * @param  {String} channel Channel name
- */
-function subscribe(channel) {
-	if (OS_IOS) {
-		subscribeIOS(function(token){
-			cloudSubscribe(channel, token);
-		});
-	} else if (OS_ANDROID) {
-		subscribeAndroid(function(token){
-			cloudSubscribe(channel, token);
+	if (config.autoReset) {
+		setBadge(0);
+		Ti.App.addEventListener(&#39;app.resumed&#39;, function(){
+			setBadge(0);
 		});
 	}
-}
-exports.subscribe = subscribe;
 
-
-function unsubscribeIOS() {
-	Ti.Network.unregisterForPushNotifications();
-}
-
-function unsubscribeAndroid() {
-	CloudPush.enabled = false;
-}
-
-function cloudUnsubscribe(channel) {
-	var token = Ti.App.Properties.getString(&#39;notifications.token&#39;);
-	if (!token) {
-		return;
-	}
-
-	Ti.App.Properties.removeProperty(&#39;notifications.token&#39;);
-	Cloud.PushNotifications.unsubscribeToken({
-		device_token: token,
-		channel: channel || null
-	}, function(){
-	});
-}
-
-<span id='Notifications-method-unsubscribe'>/**
-</span> * Unsubscribe for that channell
- * @param  {String} channel Channel name
- */
-function unsubscribe(channel) {
-	if (OS_IOS) {
-		unsubscribeIOS();
-	} else if (OS_ANDROID) {
-		unsubscribeAndroid();
-	}
-	cloudUnsubscribe(channel);
-}
-exports.unsubscribe = unsubscribe;
+})();
 </pre>
 </body>
 </html>

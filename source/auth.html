@@ -253,14 +253,14 @@ function logout(cb) {
 			url: &#39;/logout&#39;,
 			method: &#39;POST&#39;,
 			silent: true,
+			success: function(){},
+			error: function(){},
 			complete: function(){
 				Net.resetCookies();
 				Ti.App.fireEvent(&#39;auth.logout&#39;, { id: id });
 
 				if (cb) cb();
 			},
-			success: function(){},
-			error: function(){} // suppress all errors
 		});
 
 	} else {
