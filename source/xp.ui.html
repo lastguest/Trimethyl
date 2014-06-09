@@ -24,6 +24,9 @@
  *
  * You have to use in Alloy with `module=&quot;xp.ui&quot;`
  *
+ * Inspired to @FokkeZB UTIL. Thanks! :)
+ * https://github.com/CaffeinaLab/Trimethyl/edit/master/xp.ui.js
+ *
  */
 
 
@@ -31,6 +34,9 @@
 
 if (!OS_IOS) {
 
+	/*
+	NavigationWindow Android fallback provided by @FokkeZB
+	*/
 	var NavigationWindow = function(args) {
 		this.args = args || {};
 		this.windows = [];
@@ -241,7 +247,6 @@ function __enableAutoFocus(e) {
  * Added properties:
  *
  * * **textType**: Can be *email* or *password*, and adjust the keyboard or the mask automatically.
- * * **hintTextColor**: Color support the the hintText
  * * **realValue**: get the effective value when using hintText hack
  *
  * ## iOS
@@ -258,11 +263,6 @@ function __enableAutoFocus(e) {
 exports.createTextField = function(args) {
 	args = args || {};
 
-	if (args.hintTextColor) {
-		args.__hintText = args.hintText;
-		delete args.hintText;
-	}
-
 	switch (args.textType) {
 		case &#39;email&#39;:
 		args.keyboardType = Ti.UI.KEYBOARD_EMAIL;
@@ -274,24 +274,10 @@ exports.createTextField = function(args) {
 
 	var $this = Ti.UI.createTextField(args);
 
-	if (args.hintTextColor) {
-		$this.originalColor = $this.color || &#39;#000&#39;;
-		$this.addEventListener(&#39;focus&#39;, __onTextAreaFocus);
-		$this.addEventListener(&#39;blur&#39;, __onTextAreaBlur);
-		__onTextAreaBlur({ source: $this });
-	}
-
 	if (OS_ANDROID) {
 		$this.softKeyboardOnFocus = Ti.UI.Android.SOFT_KEYBOARD_HIDE_ON_FOCUS;
 		$this.addEventListener(&#39;touchstart&#39;, __enableAutoFocus);
 	}
-
-	// Define a method to get the value when hintText hack is used
-	$this.getRealValue = function(){
-		if ($this.__hintText==$this.value) return &#39;&#39;;
-		return $this.value;
-	};
-	Object.defineProperty($this, &#39;realValue&#39;, { get: $this.getRealValue });
 
 	return $this;
 };
@@ -306,7 +292,6 @@ exports.createTextField = function(args) {
  *
  * Added properties:
  *
- * * **hintTextColor**: Color support the the hintText
  * * **realValue**: get the effective value when using hintText hack
  *
  * ## iOS
@@ -323,14 +308,9 @@ exports.createTextField = function(args) {
 exports.createTextArea = function(args) {
 	args = args || {};
 
-	if (args.hintTextColor) {
-		args.__hintText = args.hintText;
-		delete args.hintText;
-	}
-
 	var $this = Ti.UI.createTextArea(args || {});
 
-	if (args.hintTextColor || OS_IOS) {
+	if (OS_IOS) {
 		$this.__hintText = $this.hintText;
 		$this.originalColor = $this.color || &#39;#000&#39;;
 		$this.addEventListener(&#39;focus&#39;, __onTextAreaFocus);
@@ -462,6 +442,44 @@ exports.createLabel = function(args) {
 	}
 
 	return $this;
-};</pre>
+};
+
+
+
+<span id='XPUI-method-createListView'>/**
+</span> * @method createListView
+ *
+ * Added listeners:
+ *
+ * * **itemdblclick**: Similar to itemclick, but for double **item** click
+ *
+ * @param  {Object} args
+ */
+exports.createListView = function(args) {
+	var $this = Ti.UI.createListView(args || {});
+
+	var DBL_CLICK_TIMEOUT = 500;
+	var devtClick = {};
+	var devtTime = 0;
+
+	$this.addEventListener(&#39;itemclick&#39;, function(e){
+		var evtTime = +(new Date());
+		var evtClick = {
+			itemId: e.itemId,
+			bindId: e.bindId,
+			sectionIndex: e.sectionIndex,
+			itemIndex: e.itemIndex
+		};
+		if (evtTime-devtTime&lt;DBL_CLICK_TIMEOUT &amp;&amp; _.isEqual(devtClick, evtClick)) {
+			$this.fireEvent(&#39;itemdblclick&#39;, evtClick);
+			eventClick = {};
+		}
+		devtTime = evtTime;
+		devtClick = evtClick;
+	});
+
+	return $this;
+};
+</pre>
 </body>
 </html>

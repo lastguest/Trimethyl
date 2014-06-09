@@ -30,15 +30,15 @@ var config = _.extend({
 }, Alloy.CFG.newrelic);
 exports.config = config;
 
-var $ = null;
+var TiNewRelic = null;
 
 (function init() {
 	if (!OS_IOS) return;
 
 	try {
-		$ = require(&#39;ti.newrelic&#39;);
+		TiNewRelic = require(&#39;ti.newrelic&#39;);
 		if (config.token) {
-			$.start(config.token);
+			TiNewRelic.start(config.token);
 		}
 	} catch (e) {}
 })();</pre>
