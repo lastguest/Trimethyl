@@ -28,8 +28,6 @@
  * @type {Object}
  */
 var config = _.extend({
-	inAppNotification: true,
-	inAppNotificationMethod: null,
 	autoReset: true,
 	driver: &#39;cloud&#39;,
 }, Alloy.CFG.notifications);
@@ -207,7 +205,7 @@ exports.incBadge = incBadge;
 
 	if (config.autoReset) {
 		resetBadge();
-		Ti.App.addEventListener(&#39;app.resumed&#39;, resetBadge);
+		Ti.App.addEventListener(&#39;resumed&#39;, resetBadge);
 	}
 
 })();

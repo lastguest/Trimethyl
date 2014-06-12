@@ -119,10 +119,8 @@ function decorateRequest(request) {
 
 	request.method = request.method ? request.method.toUpperCase() : &#39;GET&#39;;
 	request.headers = _.extend(config.headers, request.headers || {});
-	if (!request.timeout) request.timeout = config.timeout;
-
-	if (!request.success) request.success = function(){};
-	if (!request.error) request.error = errorHandler;
+	request.timeout = request.timeout || config.timeout;
+	if (request.error===undefined) request.error = errorHandler;
 
 	// Rebuild the URL if is a GET and there&#39;s data
 	if (request.method==&#39;GET&#39; &amp;&amp; request.data) {
@@ -180,7 +178,7 @@ function onComplete(request, response, e){
 		*/
 
 		if (ENV_DEVELOPMENT &amp;&amp; config.debug) {
-			Ti.API.debug(&quot;Net: response success&quot;);
+			Ti.API.debug(&quot;Net: response success  ---&gt; &quot;+response.responseText);
 		}
 
 		// Write cache
@@ -189,7 +187,9 @@ function onComplete(request, response, e){
 		}
 
 		// Success callback
-		request.success(returnValue);
+		if (_.isFunction(request.success)) {
+			request.success(returnValue);
+		}
 		return true;
 
 	} else {
@@ -216,7 +216,9 @@ function onComplete(request, response, e){
 		};
 
 		// Error callback
-		request.error(E);
+		if (_.isFunction(request.error)) {
+			request.error(E);
+		}
 		return false;
 
 	}
@@ -384,7 +386,7 @@ exports.resetCache = function(){
 </span> * Reset the cookies for all requests
  */
 function resetCookies() {
-	// TODO
+	Ti.Network.createHTTPClient().clearCookies(config.base);
 }
 exports.resetCookies = resetCookies;
 
@@ -449,7 +451,9 @@ function send(request) {
 				Ti.API.debug(&quot;Net: success from cache&quot;);
 			}
 
-			request.success(cache);
+			if (_.isFunction(request.success)) {
+				request.success(cache);
+			}
 			return request.hash;
 		}
 	}

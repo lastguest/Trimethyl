@@ -471,8 +471,9 @@ exports.createListView = function(args) {
 			itemIndex: e.itemIndex
 		};
 		if (evtTime-devtTime&lt;DBL_CLICK_TIMEOUT &amp;&amp; _.isEqual(devtClick, evtClick)) {
+			evtClick.section = e.section;
 			$this.fireEvent(&#39;itemdblclick&#39;, evtClick);
-			eventClick = {};
+			evtClick = {}; // prevent non 2n-clicks
 		}
 		devtTime = evtTime;
 		devtClick = evtClick;
