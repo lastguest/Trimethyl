@@ -25,7 +25,6 @@
 </span> * @type {Object}
  */
 var config = _.extend({
-	debug: true
 }, Alloy.CFG.net ? Alloy.CFG.net.cache : {});
 exports.config = config;
 
@@ -40,7 +39,7 @@ var DB = null;
  */
 function set(request, response, info) {
 	if (!DB) {
-		Ti.API.error(&quot;Net.Cache: database not open.&quot;);
+		Ti.API.error(&quot;Net.Cache: REQ-[&quot;+request.hash+&quot;] database not open.&quot;);
 		return false;
 	}
 
@@ -52,8 +51,8 @@ function set(request, response, info) {
 		JSON.stringify(info)
 		);
 
-	if (ENV_DEVELOPMENT &amp;&amp; config.debug) {
-		Ti.API.debug(&quot;Net.Cache: Cache written successfully.&quot;);
+	if (ENV_DEVELOPMENT) {
+		Ti.API.debug(&quot;Net.Cache: REQ-[&quot;+request.hash+&quot;] cache written successfully.&quot;);
 	}
 }
 exports.set = set;
@@ -67,20 +66,20 @@ exports.set = set;
  */
 function get(request, bypassExpiration) {
 	if (!DB) {
-		Ti.API.error(&quot;Net.Cache: database not open.&quot;);
+		Ti.API.error(&quot;Net.Cache: REQ-[&quot;+request.hash+&quot;] database not open.&quot;);
 		return false;
 	}
 
 	if (request.refresh || request.cache===false) {
-		if (ENV_DEVELOPMENT &amp;&amp; config.debug) {
-			Ti.API.debug(&quot;Net.Cache: request cache forced to refresh&quot;);
+		if (ENV_DEVELOPMENT) {
+			Ti.API.debug(&quot;Net.Cache: REQ-[&quot;+request.hash+&quot;] cache forced to refresh&quot;);
 		}
 		return false;
 	}
 
 	var cacheRow = DB.execute(&#39;SELECT expire, creation FROM net WHERE id = ? LIMIT 1&#39;, request.hash);
 	if (!cacheRow || !cacheRow.isValidRow()) {
-		Ti.API.debug(&quot;Net.Cache: cache not found&quot;);
+		Ti.API.debug(&quot;Net.Cache: REQ-[&quot;+request.hash+&quot;] cache not found&quot;);
 		return false;
 	}
 
@@ -89,8 +88,8 @@ function get(request, bypassExpiration) {
 	var now = require(&#39;util&#39;).timestamp();
 
 	if (!bypassExpiration) {
-		if (ENV_DEVELOPMENT &amp;&amp; config.debug) {
-			Ti.API.debug(&quot;Net.Cache: cache values are &quot;+expire+&quot; - &quot;+now+&quot; = &quot;+(expire-now)+&quot;s&quot;);
+		if (ENV_DEVELOPMENT) {
+			Ti.API.debug(&quot;Net.Cache: REQ-[&quot;+request.hash+&quot;] cache values are &quot;+expire+&quot; - &quot;+now+&quot; = &quot;+(expire-now)+&quot;s&quot;);
 		}
 		if (expire&lt;now) {
 			return false;
@@ -100,7 +99,7 @@ function get(request, bypassExpiration) {
 	var cache = DB.execute(&#39;SELECT info, content FROM net WHERE id = ? LIMIT 1&#39;, request.hash);
 	var content = cache.fieldByName(&#39;content&#39;);
 	if (!content) {
-		Ti.API.error(&quot;Net.Cache: invalid cache content&quot;);
+		Ti.API.error(&quot;Net.Cache: REQ-[&quot;+request.hash+&quot;] has invalid cache content&quot;);
 		return false;
 	}
 
@@ -119,7 +118,7 @@ exports.get = get;
  */
 function reset() {
 	if (!DB) {
-		Ti.API.error(&quot;Net.Cache: database not open.&quot;);
+		Ti.API.error(&quot;Net.Cache: REQ-[&quot;+request.hash+&quot;] database not open.&quot;);
 		return false;
 	}
 
@@ -134,7 +133,7 @@ exports.reset = reset;
  */
 function del(hash) {
 	if (!DB) {
-		Ti.API.error(&quot;Net.Cache: database not open.&quot;);
+		Ti.API.error(&quot;Net.Cache: REQ-[&quot;+request.hash+&quot;] database not open.&quot;);
 		return false;
 	}
 

@@ -56,7 +56,7 @@ if (OS_IOS) {
 			types: [ Ti.Network.NOTIFICATION_TYPE_BADGE, Ti.Network.NOTIFICATION_TYPE_ALERT, Ti.Network.NOTIFICATION_TYPE_SOUND ],
 			success: function(e){
 				if (!e.deviceToken) {
-					Ti.API.error(&quot;Notifications: Unable to get device token; &quot;+e.error);
+					Ti.API.error(&quot;Notifications: Subscribing - Unable to get device token; &quot;+e.error);
 					Ti.App.fireEvent(&#39;notifications.subscription.error&#39;, e);
 					return;
 				}
@@ -65,7 +65,7 @@ if (OS_IOS) {
 
 			},
 			error: function(e){
-				Ti.API.error(&quot;Notifications: &quot;+e.error);
+				Ti.API.error(&quot;Notifications: Subscribing - &quot;+e.error);
 				Ti.App.fireEvent(&#39;notifications.subscription.error&#39;, e);
 			},
 		});
@@ -86,7 +86,7 @@ if (OS_IOS) {
 		CloudPush.retrieveDeviceToken({
 			success: function(e) {
 				if (!e.deviceToken) {
-					Ti.API.error(&quot;Notifications: Unable to get device token; &quot;+e.error);
+					Ti.API.error(&quot;Notifications: Retrieve device token success but invalid - &quot;+e.error);
 					Ti.App.fireEvent(&#39;notifications.subscription.error&#39;, e);
 					return;
 				}
@@ -96,7 +96,7 @@ if (OS_IOS) {
 
 			},
 			error: function(e) {
-				Ti.API.error(&quot;Notifications: &quot;+e.error);
+				Ti.API.error(&quot;Notifications: Retrieve device token failed - &quot;+e.error);
 				Ti.App.fireEvent(&#39;notifications.subscription.error&#39;, e);
 			}
 		});
@@ -126,15 +126,17 @@ function subscribe(channel) {
 
 	subscribeFunction(function(token){
 		if (ENV_DEVELOPMENT) {
-			Ti.API.debug(&quot;Notifications: Subscribing success; device token is &quot;+token);
+			Ti.API.debug(&quot;Notifications: Subscribed, device token is &quot;+token);
 		}
 
 		var driver = getDriver();
-		if (driver) driver.subscribe(token, channel, function(){
-			if (ENV_DEVELOPMENT) {
-				Ti.API.debug(&quot;Notifications: Subscribing success to driver&quot;);
-			}
-		});
+		if (driver) {
+			driver.subscribe(token, channel, function(){
+				if (ENV_DEVELOPMENT) {
+					Ti.API.debug(&quot;Notifications: Subscribed to selected driver (&quot;+config.driver+&#39;)&#39;);
+				}
+			});
+		}
 
 	});
 
