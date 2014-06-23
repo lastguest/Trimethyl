@@ -20,8 +20,6 @@
  * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
  * Image manipulation module
  *
- * Require `ti.imagefactory`
- *
  */
 
 <span id='Image-property-config'>/**
@@ -55,66 +53,53 @@ exports.config = config;
  *
  * `filename`: output the blob in the filesystem and release memory blob
  *
- * `callback`: call the function passing the output blob or output file if the keyword `filename` is specified
- * A null object is passed in case of errors
+ * `success`: call the function passing the output blob or output file if the keyword `filename` is specified
+ *
+ * `error`: call the function in case of errors
  *
  * @param  {Object} opt The options, see the description above.
  */
 function process(opt) {
 	if (!opt.blob) {
 		Ti.API.error(&quot;Image: Set a blob please&quot;);
-		opt.callback();
+		if (opt.error) opt.error();
 		return;
 	}
 
-	var TiImageFactory = require(&#39;ti.imagefactory&#39;);
-	var density = opt.retina ? require(&#39;device&#39;).getScreenDensity() : 1;
+	var density = opt.retina ? Alloy.Globals.SCREEN_DENSITY : 1;
 	var R = null;
 
 	if (opt.size) {
-
-		R = TiImageFactory.imageAsThumbnail(opt.blob, {
-			size: opt.size*density,
-		});
-
+		R = opt.blob.imageAsThumbnail(opt.size*density);
 	} else if (opt.width || opt.height) {
-
 		opt.width = opt.width || opt.height*(opt.blob.width/opt.blob.height);
-		opt.height = opt.height ||  opt.width*(opt.blob.height/opt.blob.width);
-		R = TiImageFactory.imageAsResized(opt.blob, {
-			width: opt.width*density,
-			height: opt.height*density
-		});
-
+		opt.height = opt.height || opt.width*(opt.blob.height/opt.blob.width);
+		R = opt.blob.imageAsResized(opt.width*density, opt.height*density);
 	} else {
 		R = opt.blob;
 	}
 
 	if (R) {
 
-		if (opt.quality) {
-			R = TiImageFactory.compress(R, +opt.quality);
-		}
-
 		if (opt.filename) {
 
 			var file = Ti.Filesystem.getFile(require(&#39;util&#39;).getAppDataDirectory(), opt.filename);
 			var result = file.write(R);
-			R = null; // nullable ALL!
+			R = null;
 
 			if (result) {
-				opt.callback(file);
+				if (opt.success) opt.success(file);
 			} else {
 				Ti.API.error(&quot;Image: error writing file&quot;);
-			 	opt.callback();
+			 	if (opt.error) opt.error();
 			}
 
 		} else {
-			opt.callback(R);
+			if (opt.success) opt.success(R);
 		}
 
 	} else {
-		opt.callback();
+		if (opt.error) opt.error();
 	}
 }
 exports.process = process;</pre>

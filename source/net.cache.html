@@ -30,7 +30,6 @@ exports.config = config;
 
 var DB = null;
 
-
 <span id='Net-Cache-method-set'>/**
 </span> * Write the cache
  * @param  {Object} request  The network request
@@ -39,7 +38,7 @@ var DB = null;
  */
 function set(request, response, info) {
 	if (!DB) {
-		Ti.API.error(&quot;Net.Cache: REQ-[&quot;+request.hash+&quot;] database not open.&quot;);
+		Ti.API.error(&quot;Net.Cache: database not open&quot;);
 		return false;
 	}
 
@@ -50,10 +49,6 @@ function set(request, response, info) {
 		response.responseData,
 		JSON.stringify(info)
 		);
-
-	if (ENV_DEVELOPMENT) {
-		Ti.API.debug(&quot;Net.Cache: REQ-[&quot;+request.hash+&quot;] cache written successfully.&quot;);
-	}
 }
 exports.set = set;
 
@@ -66,14 +61,7 @@ exports.set = set;
  */
 function get(request, bypassExpiration) {
 	if (!DB) {
-		Ti.API.error(&quot;Net.Cache: REQ-[&quot;+request.hash+&quot;] database not open.&quot;);
-		return false;
-	}
-
-	if (request.refresh || request.cache===false) {
-		if (ENV_DEVELOPMENT) {
-			Ti.API.debug(&quot;Net.Cache: REQ-[&quot;+request.hash+&quot;] cache forced to refresh&quot;);
-		}
+		Ti.API.error(&quot;Net.Cache: database not open&quot;);
 		return false;
 	}
 
@@ -84,27 +72,22 @@ function get(request, bypassExpiration) {
 	}
 
 	var expire = +cacheRow.fieldByName(&#39;expire&#39;) || 0;
-	var creation = +cacheRow.fieldByName(&#39;creation&#39;) || 0;
 	var now = require(&#39;util&#39;).timestamp();
 
 	if (!bypassExpiration) {
-		if (ENV_DEVELOPMENT) {
-			Ti.API.debug(&quot;Net.Cache: REQ-[&quot;+request.hash+&quot;] cache values are &quot;+expire+&quot; - &quot;+now+&quot; = &quot;+(expire-now)+&quot;s&quot;);
-		}
-		if (expire&lt;now) {
-			return false;
-		}
+		Ti.API.debug(&quot;Net.Cache: REQ-[&quot;+request.hash+&quot;] cache values are &quot;+expire+&quot;-&quot;+now+&quot; = &quot;+Math.floor((expire-now)/60)+&quot;min&quot;);
+		if (expire&lt;now) return false;
 	}
 
-	var cache = DB.execute(&#39;SELECT info, content FROM net WHERE id = ? LIMIT 1&#39;, request.hash);
-	var content = cache.fieldByName(&#39;content&#39;);
+	cacheRow = DB.execute(&#39;SELECT info, content FROM net WHERE id = ? LIMIT 1&#39;, request.hash);
+	var content = cacheRow.fieldByName(&#39;content&#39;);
 	if (!content) {
 		Ti.API.error(&quot;Net.Cache: REQ-[&quot;+request.hash+&quot;] has invalid cache content&quot;);
 		return false;
 	}
 
-	var info = require(&#39;util&#39;).parseJSON(cache.fieldByName(&#39;info&#39;)) || {};
-	if (info &amp;&amp; info.mime==&#39;json&#39;) {
+	var info = require(&#39;util&#39;).parseJSON(cacheRow.fieldByName(&#39;info&#39;)) || {};
+	if (info.mime==&#39;json&#39;) {
 		return require(&#39;util&#39;).parseJSON(content);
 	} else {
 		return content;
@@ -118,7 +101,7 @@ exports.get = get;
  */
 function reset() {
 	if (!DB) {
-		Ti.API.error(&quot;Net.Cache: REQ-[&quot;+request.hash+&quot;] database not open.&quot;);
+		Ti.API.error(&quot;Net.Cache: database not open&quot;);
 		return false;
 	}
 
@@ -133,7 +116,7 @@ exports.reset = reset;
  */
 function del(hash) {
 	if (!DB) {
-		Ti.API.error(&quot;Net.Cache: REQ-[&quot;+request.hash+&quot;] database not open.&quot;);
+		Ti.API.error(&quot;Net.Cache: database not open&quot;);
 		return false;
 	}
 
