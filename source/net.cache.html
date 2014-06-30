@@ -25,7 +25,7 @@
 </span> * @type {Object}
  */
 var config = _.extend({
-}, Alloy.CFG.net ? Alloy.CFG.net.cache : {});
+}, Alloy.CFG.T.net ? Alloy.CFG.T.net.cache : {});
 exports.config = config;
 
 var DB = null;
@@ -45,7 +45,7 @@ function set(request, response, info) {
 	DB.execute(&#39;INSERT OR REPLACE INTO net (id, expire, creation, content, info) VALUES (?,?,?,?,?)&#39;,
 		request.hash,
 		info.expire,
-		require(&#39;util&#39;).timestamp(),
+		require(&#39;T/util&#39;).timestamp(),
 		response.responseData,
 		JSON.stringify(info)
 		);
@@ -72,7 +72,7 @@ function get(request, bypassExpiration) {
 	}
 
 	var expire = +cacheRow.fieldByName(&#39;expire&#39;) || 0;
-	var now = require(&#39;util&#39;).timestamp();
+	var now = require(&#39;T/util&#39;).timestamp();
 
 	if (!bypassExpiration) {
 		Ti.API.debug(&quot;Net.Cache: REQ-[&quot;+request.hash+&quot;] cache values are &quot;+expire+&quot;-&quot;+now+&quot; = &quot;+Math.floor((expire-now)/60)+&quot;min&quot;);
@@ -86,9 +86,9 @@ function get(request, bypassExpiration) {
 		return false;
 	}
 
-	var info = require(&#39;util&#39;).parseJSON(cacheRow.fieldByName(&#39;info&#39;)) || {};
+	var info = require(&#39;T/util&#39;).parseJSON(cacheRow.fieldByName(&#39;info&#39;)) || {};
 	if (info.mime==&#39;json&#39;) {
-		return require(&#39;util&#39;).parseJSON(content);
+		return require(&#39;T/util&#39;).parseJSON(content);
 	} else {
 		return content;
 	}
@@ -127,7 +127,7 @@ exports.del = del;
 
 (function init(){
 
-	DB = require(&#39;db&#39;).open();
+	DB = require(&#39;T/db&#39;).open();
 	if (DB) {
 		DB.execute(&#39;CREATE TABLE IF NOT EXISTS net (id TEXT PRIMARY KEY, expire INTEGER, creation INTEGER, content TEXT, info TEXT)&#39;);
 	}

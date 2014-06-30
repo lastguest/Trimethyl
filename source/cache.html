@@ -24,7 +24,7 @@
 <span id='Cache-property-config'>/**
 </span> * @type {Object}
  */
-var config = _.extend({}, Alloy.CFG.cache);
+var config = _.extend({}, Alloy.CFG.T.cache);
 exports.config = config;
 
 
@@ -40,13 +40,13 @@ function __get(id) {
 	if (!row.isValidRow()) return false;
 
 	var expire = row.field(0) || 0;
-	var now = require(&#39;util&#39;).timestamp();
+	var now = require(&#39;T/util&#39;).timestamp();
 	if (expire!==-1 &amp;&amp; now&gt;expire) return false;
 
 	row = DB.execute(&#39;SELECT value FROM cache WHERE id = ? LIMIT 1&#39;, id);
 	if (!row.isValidRow()) return false;
 
-	return require(&#39;util&#39;).parseJSON(row.field(0));
+	return require(&#39;T/util&#39;).parseJSON(row.field(0));
 }
 
 <span id='Cache-method-get'>/**
@@ -84,7 +84,7 @@ function set(id, value, expire) {
 	}
 
 	if (expire) {
-		expire = require(&#39;util&#39;).timestamp() + parseInt(expire, 10);
+		expire = require(&#39;T/util&#39;).timestamp() + parseInt(expire, 10);
 	} else {
 		expire = -1;
 	}
@@ -94,7 +94,7 @@ exports.set = set;
 
 
 (function init(c) {
-	DB = require(&#39;db&#39;).open();
+	DB = require(&#39;T/db&#39;).open();
 	if (DB) {
 		DB.execute(&#39;CREATE TABLE IF NOT EXISTS cache (id TEXT PRIMARY KEY, expire INTEGER, value TEXT)&#39;);
 	}

@@ -37,7 +37,7 @@ var config = _.extend({
 	headers: {},
 	usePingServer: true,
 	autoOfflineMessage: true
-}, Alloy.CFG.net);
+}, Alloy.CFG.T.net);
 exports.config = config;
 
 
@@ -46,7 +46,7 @@ var queue = {};
 var serverConnected = null;
 var errorHandler = null;
 
-function originalErrorHandler(e) { require(&#39;util&#39;).alertError(e.message); }
+function originalErrorHandler(e) { require(&#39;T/util&#39;).alertError(e.message); }
 errorHandler = originalErrorHandler;
 
 function calculateHash(request) {
@@ -81,7 +81,7 @@ exports.resetErrorHandler = resetErrorHandler;
 function getResponseInfo(response) {
 	var info = {
 		mime: &#39;blob&#39;,
-		expire: -1,
+		expire: 0,
 	};
 
 	// Check first the Content-Type
@@ -93,14 +93,14 @@ function getResponseInfo(response) {
 	// Check the Expires header
 	var expires = response.getResponseHeader(&#39;Expires&#39;);
 	if (expires) {
-		var t = require(&#39;util&#39;).timestamp(expires);
+		var t = require(&#39;T/util&#39;).timestamp(expires);
 		if (t) info.expire = t;
 	}
 
 	// Check againts X-Cache-Ttl header (in seconds)
 	var ttl = response.getResponseHeader(&#39;X-Cache-Ttl&#39;);
 	if (ttl) {
-		info.expire = require(&#39;util&#39;).timestamp( 1000*(require(&#39;util&#39;).timestamp()+parseInt(ttl,10)) );
+		info.expire = require(&#39;T/util&#39;).timestamp( 1000*(require(&#39;T/util&#39;).timestamp()+parseInt(ttl,10)) );
 	}
 
 	return info;
@@ -127,7 +127,7 @@ function decorateRequest(request) {
 
 	// Rebuild the URL if is a GET and there&#39;s data
 	if (request.method==&#39;GET&#39; &amp;&amp; request.data) {
-		var buildedQuery = require(&#39;util&#39;).buildQuery(request.data);
+		var buildedQuery = require(&#39;T/util&#39;).buildQuery(request.data);
 		delete request.data;
 		request.url = request.url + buildedQuery.toString();
 	}
@@ -174,7 +174,7 @@ function onComplete(request, response, e){
 
 	// Parse based on response info
 	if (info.mime==&#39;json&#39;) {
-		returnValue = require(&#39;util&#39;).parseJSON(response.responseText);
+		returnValue = require(&#39;T/util&#39;).parseJSON(response.responseText);
 	} else {
 		returnValue = response.responseData;
 	}
@@ -189,7 +189,7 @@ function onComplete(request, response, e){
 
 		// Write cache
 		if (NetCache) {
-			if (request.cache!==false &amp;&amp; request.method===&#39;GET&#39; &amp;&amp; info.expire&gt;require(&#39;util&#39;).timestamp()) {
+			if (request.cache!==false &amp;&amp; request.method===&#39;GET&#39; &amp;&amp; info.expire&gt;require(&#39;T/util&#39;).timestamp()) {
 				NetCache.set(request, response, info);
 			}
 		}
@@ -447,7 +447,7 @@ function send(request) {
 		Ti.App.fireEvent(&#39;net.offline&#39;, { cache: false });
 
 		if (config.autoOfflineMessage) {
-			require(&#39;util&#39;).alert(L(&#39;net_offline_title&#39;), L(&#39;net_offline_message&#39;));
+			require(&#39;T/util&#39;).alert(L(&#39;net_offline_title&#39;), L(&#39;net_offline_message&#39;));
 		}
 
 		if (typeof request.complete===&#39;function&#39;) request.complete();
@@ -471,7 +471,7 @@ function send(request) {
 	// Add this request to the queue
 	queue[request.hash] = H;
 
-	if (request.silent!==false) {
+	if (!request.silent) {
 		Ti.App.fireEvent(&#39;net.start&#39;, {
 			id: request.hash,
 			eventName: request.eventName || null
@@ -579,7 +579,7 @@ exports.postJSON = function(url, data, success, error) {
 (function init(){
 
 	if (config.useCache) {
-		NetCache = require(&#39;net.cache&#39;);
+		NetCache = require(&#39;T/net.cache&#39;);
 	}
 
 })();

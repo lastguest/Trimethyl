@@ -25,7 +25,7 @@
 <span id='Image-property-config'>/**
 </span> * @type {Object}
  */
-var config = _.extend({}, Alloy.CFG.image);
+var config = _.extend({}, Alloy.CFG.T.image);
 exports.config = config;
 
 
@@ -62,7 +62,6 @@ exports.config = config;
 function process(opt) {
 	if (!opt.blob) {
 		Ti.API.error(&quot;Image: Set a blob please&quot;);
-		if (opt.error) opt.error();
 		return;
 	}
 
@@ -79,28 +78,19 @@ function process(opt) {
 		R = opt.blob;
 	}
 
-	if (R) {
+	if (!R) return;
+	if (!opt.filename) return R;
 
-		if (opt.filename) {
+	var file = Ti.Filesystem.getFile(require(&#39;T/util&#39;).getAppDataDirectory(), opt.filename);
+	var result = file.write(R);
+	R = null;
 
-			var file = Ti.Filesystem.getFile(require(&#39;util&#39;).getAppDataDirectory(), opt.filename);
-			var result = file.write(R);
-			R = null;
-
-			if (result) {
-				if (opt.success) opt.success(file);
-			} else {
-				Ti.API.error(&quot;Image: error writing file&quot;);
-			 	if (opt.error) opt.error();
-			}
-
-		} else {
-			if (opt.success) opt.success(R);
-		}
-
-	} else {
-		if (opt.error) opt.error();
+	if (!result) {
+		Ti.API.error(&quot;Image: error writing file&quot;);
+		return;
 	}
+
+	return file;
 }
 exports.process = process;</pre>
 </body>

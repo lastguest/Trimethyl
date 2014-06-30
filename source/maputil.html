@@ -31,7 +31,7 @@ var config = _.extend({
 	pixelRadius: 15,
 	removeOutOfBB: true,
 	maxDeltaToCluster: 0.3
-}, Alloy.CFG.maputil);
+}, Alloy.CFG.T.maputil);
 exports.config = config;
 
 
@@ -241,7 +241,8 @@ function checkForDependencies() {
 		break;
 	}
 
-	require(&#39;util&#39;).alertError(errorMessage, function(){
+	// Open Play Store to download
+	require(&#39;T/util&#39;).alertError(errorMessage, function(){
 		Ti.Platform.openURL(&#39;https://play.google.com/store/apps/details?id=com.google.android.gms&#39;);
 		Ti.Android.currentActivity.finish();
 	});

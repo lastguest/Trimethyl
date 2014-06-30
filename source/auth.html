@@ -21,14 +21,14 @@
  * Authentication module interfaced with an API server
  */
 
-var config = _.extend({}, Alloy.CFG.auth);
+var config = _.extend({}, Alloy.CFG.T.auth);
 exports.config = config;
 
 var drivers = {};
 
 var Me = null;
 var authInfo = null;
-var Net = require(&#39;net&#39;);
+var Net = require(&#39;T/net&#39;);
 
 
 function getCurrentDriver(){
@@ -44,7 +44,7 @@ function getCurrentDriver(){
  */
 function loadDriver(driver) {
 	if (!driver) return false;
-	return require(&#39;auth.&#39;+driver);
+	return require(&#39;T/auth.&#39;+driver);
 }
 exports.loadDriver = loadDriver;
 

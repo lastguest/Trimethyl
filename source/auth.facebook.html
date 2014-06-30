@@ -29,12 +29,12 @@
 var config = _.extend({
 	appid: null,
 	permissions: []
-}, Alloy.CFG.auth ? Alloy.CFG.auth.facebook : {});
+}, Alloy.CFG.T.auth ? Alloy.CFG.T.auth.facebook : {});
 exports.config = config;
 
 
 var FB = require(&#39;facebook&#39;);
-var Auth = require(&#39;auth&#39;);
+var Auth = require(&#39;T/auth&#39;);
 
 var authorized = false;
 var lastEvent = null;

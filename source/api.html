@@ -62,7 +62,7 @@ exports.sync = function(method, model, opt) {
 	switch (method) {
 
 		case &#39;create&#39;:
-		require(&#39;net&#39;).send(_.extend(data, {
+		require(&#39;T/net&#39;).send(_.extend(data, {
 			data: model.toJSON(),
 			success: function(resp) {
 				if (resp.id) {
@@ -79,7 +79,7 @@ exports.sync = function(method, model, opt) {
 		break;
 
 		case &#39;read&#39;:
-		require(&#39;net&#39;).send(_.extend(data, {
+		require(&#39;T/net&#39;).send(_.extend(data, {
 			data: opt.args || {},
 			success: function(resp) {
 				opt.success(resp);
@@ -92,7 +92,7 @@ exports.sync = function(method, model, opt) {
 		break;
 
 		case &#39;update&#39;:
-		require(&#39;net&#39;).send(_.extend(data, {
+		require(&#39;T/net&#39;).send(_.extend(data, {
 			data: _.pick(model.attributes, _.keys(opt.changes)),
 			success: function(resp) {
 				if (resp.id) {
@@ -109,7 +109,7 @@ exports.sync = function(method, model, opt) {
 		break;
 
 		case &#39;delete&#39;:
-		require(&#39;net&#39;).send(_.extend(data, {
+		require(&#39;T/net&#39;).send(_.extend(data, {
 			data: opt.args || {},
 			success: function(resp) {
 				opt.success();

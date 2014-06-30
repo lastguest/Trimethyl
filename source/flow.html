@@ -29,7 +29,7 @@
 var config = _.extend({
 	useNav: true,
 	trackWithGA: true
-}, Alloy.CFG.flow);
+}, Alloy.CFG.T.flow);
 exports.config = config;
 
 
@@ -94,16 +94,14 @@ exports.closeController = closeController;
  * @param  {Object} [args]     The args passed to the controller
  */
 function openDirect(controller, args) {
-	if (ENV_DEVELOPMENT) {
-		Ti.API.debug(&quot;Flow: opening directly &#39;&quot;+controller+&quot;&#39; with args &quot;+JSON.stringify(args));
-	}
+	Ti.API.debug(&quot;Flow: opening directly &#39;&quot;+controller+&quot;&#39; with args &quot;+JSON.stringify(args));
 
 	// Open the controller
 	var $C = Alloy.createController(controller, args || {});
 
 	// Track with Google Analitycs
 	if (config.trackWithGA) {
-		require(&#39;ga&#39;).trackScreen(controller);
+		require(&#39;T/ga&#39;).trackScreen(controller);
 	}
 
 	return $C;
@@ -133,9 +131,7 @@ function open(controller, args, opt) {
 	args = args || {};
 	opt = opt || {};
 
-	if (ENV_DEVELOPMENT) {
-		Ti.API.debug(&quot;Flow: opening &#39;&quot;+controller+&quot;&#39; with args &quot;+JSON.stringify(args));
-	}
+	Ti.API.debug(&quot;Flow: opening &#39;&quot;+controller+&quot;&#39; with args &quot;+JSON.stringify(args));
 
 	var $C = Alloy.createController(controller, args);
 	var $W = $C.getView();
@@ -154,20 +150,20 @@ function open(controller, args, opt) {
 
 	// Attach events
 
-	$W.addEventListener(&#39;close&#39;, function(e){
-		if (&#39;beforeDestroy&#39; in $C) C.beforeDestroy();
+	$W.addEventListener(&#39;close&#39;, function(){
+		if (&#39;beforeDestroy&#39; in $C) $C.beforeDestroy();
 		$C.destroy();
 		$C = null;
 		$W = null;
 	});
 
-	$W.addEventListener(&#39;open&#39;, function(e){
-		if (&#39;init&#39; in $C) $C.init();
-	});
+	if (&#39;init&#39; in $C) {
+		$W.addEventListener(&#39;open&#39;, $C.init);
+	}
 
 	// Track with Google Analitycs
 	if (config.trackWithGA) {
-		require(&#39;ga&#39;).trackScreen(controller);
+		require(&#39;T/ga&#39;).trackScreen(controller);
 	}
 
 	hist.push({

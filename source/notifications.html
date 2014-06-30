@@ -30,12 +30,12 @@
 var config = _.extend({
 	autoReset: true,
 	driver: &#39;cloud&#39;,
-}, Alloy.CFG.notifications);
+}, Alloy.CFG.T.notifications);
 exports.config = config;
 
 
 function getDriver(driver) {
-	return require(&#39;notifications.&#39; + (driver||config.driver) );
+	return require(&#39;T/notifications.&#39; + (driver||config.driver) );
 }
 
 
@@ -120,21 +120,15 @@ function subscribe(channel) {
 		return;
 	}
 
-	if (ENV_DEVELOPMENT) {
-		Ti.API.debug(&quot;Notifications: Subscribing to push notifications...&quot;);
-	}
+	Ti.API.debug(&quot;Notifications: Subscribing to push notifications...&quot;);
 
 	subscribeFunction(function(token){
-		if (ENV_DEVELOPMENT) {
-			Ti.API.debug(&quot;Notifications: Subscribed, device token is &quot;+token);
-		}
+		Ti.API.debug(&quot;Notifications: Subscribed, device token is &quot;+token);
 
 		var driver = getDriver();
 		if (driver) {
 			driver.subscribe(token, channel, function(){
-				if (ENV_DEVELOPMENT) {
-					Ti.API.debug(&quot;Notifications: Subscribed to selected driver (&quot;+config.driver+&#39;)&#39;);
-				}
+				Ti.API.debug(&quot;Notifications: Subscribed to selected driver (&quot;+config.driver+&#39;)&#39;);
 			});
 		}
 

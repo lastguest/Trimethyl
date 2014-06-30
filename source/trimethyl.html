@@ -21,30 +21,27 @@
  * The framework initializator
  */
 
-var Util = require(&#39;util&#39;);
-var Device 	= require(&#39;device&#39;);
+var Util = require(&#39;T/util&#39;);
+var Device 	= require(&#39;T/device&#39;);
 
 var launchURL = Util.parseSchema();
 var pauseURL = null;
 
-if (OS_IOS) {
+Ti.App.addEventListener(&#39;pause&#39;, function(){
+	pauseURL = launchURL;
+	Ti.App.fireEvent(&#39;app.paused&#39;);
+});
 
-	Ti.App.addEventListener(&#39;pause&#39;, function(){
-		pauseURL = launchURL;
-		Ti.App.fireEvent(&#39;app.paused&#39;);
-	});
+Ti.App.addEventListener(&#39;resumed&#39;, function() {
+	launchURL = Util.parseSchema();
+	if (launchURL!==pauseURL) {
+		Ti.App.fireEvent(&#39;app.resumed&#39;, { url: launchURL });
+	}
+});
 
-	Ti.App.addEventListener(&#39;resumed&#39;, function() {
-		launchURL = Util.parseSchema();
-		if (launchURL!==pauseURL) {
-			Ti.App.fireEvent(&#39;app.resumed&#39;, { url: launchURL });
-		}
-	});
-
-}
 
 // Set some TSS vars
-//
+
 Alloy.Globals.SCREEN_WIDTH 		= Device.getScreenWidth();
 Alloy.Globals.SCREEN_HEIGHT 		= Device.getScreenHeight();
 Alloy.Globals.SCREEN_DENSITY 		= Device.getScreenDensity();

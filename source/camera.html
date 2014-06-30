@@ -24,7 +24,7 @@
 <span id='Camera-property-config'>/**
 </span> * @type {Object}
  */
-var config = _.extend({}, Alloy.CFG.camera);
+var config = _.extend({}, Alloy.CFG.T.camera);
 exports.config = config;
 
 
@@ -46,7 +46,7 @@ function getPhoto(method, opt, cb){
 		},
 		error: function(e) {
 			Ti.API.error(&quot;Camera: &quot;+e);
-			require(&#39;util&#39;).alertError(L(&#39;camera_error&#39;));
+			require(&#39;T/util&#39;).alertError(L(&#39;camera_error&#39;));
 		},
 	}));
 }
@@ -82,7 +82,7 @@ exports.choosePhoto = choosePhoto;
  * @param  {Function} cb  Success callback
  */
 function selectPhoto(opt, cb){
-	require(&#39;util&#39;).optionWithDict([
+	require(&#39;T/util&#39;).optionWithDict([
 		{
 			title: L(&#39;camera_takephoto&#39;),
 			callback: function(){
