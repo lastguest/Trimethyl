@@ -65,6 +65,29 @@
  *
  *	All the other arguments are Ti-UI specific for the classic WebView.
  *
+ * ### HTML output
+ *
+ * So, the final result is an HTML string passed to the WebView, like this:
+ *
+ * ```
+ * &lt;!DOCTYPE html&gt;
+ * &lt;html&gt;
+ * 	&lt;head&gt;
+ * 		... metas ...
+ * 		&lt;style&gt;{{ app.css }}&lt;/style&gt;
+ * 		&lt;style&gt;{{ your_controller.css }}&lt;/style&gt;
+ * 	&lt;/head&gt;
+ * 	&lt;body&gt;
+ * 		&lt;div id=&quot;main&quot;&gt;
+ * 			{{ controller.tpl (rendered with webdata argument) }}
+ * 		&lt;/div&gt;
+ * 		&lt;script&gt;{{ jquery.jslocal }}&lt;/script&gt;
+ * 		&lt;script&gt;{{ app.jslocal }}&lt;/script&gt;
+ * 		&lt;script&gt;{{ controller.jslocal }}&lt;/script&gt;
+ * 	&lt;/body&gt;
+ * &lt;/html&gt;
+ * ```
+ *
  */
 
 
