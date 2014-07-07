@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='WebAlloy'>/**
+</span> * @class  	WebAlloy
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ *
+ * This is an entire web µframework to write Titanium-Alloy apps in HTML/CSS/JS, without native.
+ *
+ * The unique method `WebAlloy.createView` create a WebView with static html inside.
+ *
+ * In this **special** webview, you have the **underscore** template system, **jQuery** as a DOM lib.
+ *
+ * To work with WebAlloy, you have to replicate the exact structure in the app directory (Alloy).
+ *
+ * # Globals
+ *
+ * ## app.css
+ * Global CSS included in each view.
+ *
+ * ## app.jslocal
+ * Global JS included in each view.
+ *
+ * # MVC specific
+ *
+ *	## controllers/foo.jslocal
+ *	Javascript file included in the specific controller, after app.jslocal and jquery.jslocal
+ *
+ * ## views/foo.tpl
+ * HTML/TPL (underscore templating system) file that is parsed and written in the static HTML.
+ *
+ * ## styles/foo.css
+ * CSS file included in the specific controller.
+ *
+ * When you have replicated this structure, you can just call:
+ *
+ * ```
+ * WebAlloy.createView({
+ * 	name: &#39;foo&#39;,
+ * 	webdata: { ... },
+ * 	...
+ * });
+ *
+ * The **name** arg is to specific the files to load.
+ *
+ * The **webdata** object is passed to the HTML file and rendered.
+ *
+ *	All the other arguments are Ti-UI specific for the classic WebView.
+ *
+ */
+
+
+function embedCSS(f) {
+	var file = Ti.Filesystem.getFile(f);
+	if (!file.exists()) return &#39;&#39;;
+	var read = file.read().text; file = null;
+	return &#39;&lt;style type=&quot;text/css&quot;&gt;&#39;+read+&#39;&lt;/style&gt;&#39;;
+}
+
+function embedJS(f) {
+	var file = Ti.Filesystem.getFile(f);
+	if (!file.exists()) return &#39;&#39;;
+	var read = file.read().text; file = null;
+	return &#39;&lt;script type=&quot;text/javascript&quot;&gt;&#39;+read+&#39;&lt;/script&gt;&#39;;
+}
+
+<span id='WebAlloy-method-createView'>/**
+</span> * @method createView
+ * @param  {Object} args Arguments for the view.
+ * @return {Ti.UI.WebView}
+ */
+exports.createView = function(args) {
+	var $ui = Ti.UI.createWebView(_.extend({
+		disableBounce: true,
+		backgroundColor: &quot;transparent&quot;
+	}, args));
+
+	var html = &#39;&lt;!DOCTYPE html&gt;&#39;;
+	html += &#39;&lt;html&gt;&lt;head&gt;&lt;meta charset=&quot;utf-8&quot; /&gt;&lt;meta name=&quot;viewport&quot; content=&quot;initial-scale=1.0; maximum-scale=1.0; user-scalable=no;&quot; /&gt;&#39;;
+	html += embedCSS(&#39;web/app.css&#39;) + embedCSS(&#39;web/styles/&#39;+args.name+&#39;.css&#39;);
+	html += &#39;&lt;/head&gt;&lt;body&gt;&lt;div id=&quot;main&quot;&gt;&#39;;
+
+	$ui.tpl = _.template(Ti.Filesystem.getFile(&#39;web/views/&#39;+args.name+&#39;.tpl&#39;).read().text);
+	html += $ui.tpl(args.webdata);
+
+	html += &#39;&lt;/div&gt;&#39;;
+	html += embedJS(&#39;web/jquery.jslocal&#39;) + embedJS(&#39;web/app.jslocal&#39;) + embedJS(&#39;web/controllers/&#39;+args.name+&#39;.jslocal&#39;);
+	html += &#39;&lt;/body&gt;&lt;/html&gt;&#39;;
+
+	$ui.setHtml(html);
+	html = null;
+
+	$ui._ = function(js) {
+		return $ui.evalJS(js);
+	};
+
+	$ui.call = function() {
+		var args = _.map(Array.prototype.slice.call(arguments, 1), function(a) { return JSON.stringify(a); });
+		return $ui._( arguments[0] + &#39;(&#39; + args.join(&#39;,&#39;) + &#39;)&#39; );
+	};
+
+	$ui.$ = function(selector) {
+		return {
+			call: function() {
+				var args = _.map(Array.prototype.slice.call(arguments, 1), function(a) { return JSON.stringify(a); });
+				return $ui._( &#39;document.querySelector(&quot;&#39; + selector + &#39;&quot;).&#39; + arguments[0] + &#39;(&#39; + args.join(&#39;,&#39;) + &#39;)&#39; );
+			},
+			get: function(name) {
+				return $ui._( &#39;document.querySelector(&quot;&#39; + selector + &#39;&quot;).&#39; + name );
+			},
+			set: function(name, value) {
+				return $ui._( &#39;document.querySelector(&quot;&#39; + selector + &#39;&quot;).&#39; + name + &#39; = &#39; + JSON.stringify(value) );
+			}
+		};
+	};
+
+	$ui.render = function(data) {
+		$ui.$(&#39;#main&#39;).set(&#39;innerHTML&#39;, $ui.tpl(data));
+	};
+
+	return $ui;
+};</pre>
+</body>
+</html>
