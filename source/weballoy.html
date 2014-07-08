@@ -23,11 +23,6 @@
  *
  * The unique method `WebAlloy.createView` create a WebView with static html inside.
  *
- * In this **special** webview, you have some *helpers* that helps you to achieve the final results:
- *
- * * **underscore** template system
- * * **jQuery** as a DOM lib.
- *
  * To work with WebAlloy, you have to replicate the exact structure in the app directory (Alloy).
  *
  * ### Globals
@@ -38,8 +33,6 @@
  * #### app.jslocal
  * Global JS included in each view.
  *
- * ### MVC specific
- *
  *	#### controllers/foo.jslocal
  *	Javascript file included in the specific controller, after app.jslocal and jquery.jslocal
  *
@@ -48,6 +41,9 @@
  *
  * #### styles/foo.css
  * CSS file included in the specific controller.
+ *
+ * ### lib/**.jslocal
+ * Put your jslocal files here, they are automatically appended at the end of the HTML.
  *
  * When you have replicated this structure, you can just call:
  *
@@ -61,7 +57,7 @@
  *
  * The **name** arg is to specific the files to load.
  *
- * The **webdata** object is passed to the HTML file and rendered.
+ * The **webdata** object is passed to the HTML file and rendered with the Undescore template system.
  *
  *	All the other arguments are Ti-UI specific for the classic WebView.
  *
@@ -79,9 +75,9 @@
  * 	&lt;/head&gt;
  * 	&lt;body&gt;
  * 		&lt;div id=&quot;main&quot;&gt;
- * 			{{ controller.tpl (rendered with webdata argument) }}
+ * 			{{ controller.tpl (rendered in undescore with webdata argument) }}
  * 		&lt;/div&gt;
- * 		&lt;script&gt;{{ jquery.jslocal }}&lt;/script&gt;
+ * 		&lt;script&gt;{{ lib/**.jslocal }}&lt;/script&gt;
  * 		&lt;script&gt;{{ app.jslocal }}&lt;/script&gt;
  * 		&lt;script&gt;{{ controller.jslocal }}&lt;/script&gt;
  * 	&lt;/body&gt;
@@ -118,19 +114,44 @@
  *
  */
 
+<span id='WebAlloy-property-config'>/**
+</span> * * **minify**: Minify all CSS/JS. Default: ENV_PRODUCTION
+ * @type {Object}
+ */
+var config = _.extend({
+	minify: ENV_PRODUCTION
+}, Alloy.CFG.T.weballoy);
+exports.config = config;
+
+var libDir = [];
+
+function minify(content) {
+	if (!config.minify) {
+		return content;
+	}
+
+	content = content.replace( /\/\*(?:(?!\*\/)[\s\S])*\*\/|[\r\n\t]+/g, &#39;&#39; );
+	content = content.replace( / {2,}/g, &#39; &#39; );
+	content = content.replace( / ([{:}]) /g, &#39;$1&#39; );
+	content = content.replace( /([;,]) /g, &#39;$1&#39; );
+	content = content.replace( / !/g, &#39;!&#39; );
+	return content;
+}
 
 function embedCSS(f) {
 	var file = Ti.Filesystem.getFile(f);
 	if (!file.exists()) return &#39;&#39;;
-	var read = file.read().text; file = null;
-	return &#39;&lt;style type=&quot;text/css&quot;&gt;&#39;+read+&#39;&lt;/style&gt;&#39;;
+	var read = minify(file.read().text);
+	file = null;
+	return &#39;&lt;style id=&quot;__weballoy_&#39;+f+&#39;&quot; type=&quot;text/css&quot;&gt;&#39;+read+&#39;&lt;/style&gt;&#39;;
 }
 
 function embedJS(f) {
 	var file = Ti.Filesystem.getFile(f);
 	if (!file.exists()) return &#39;&#39;;
-	var read = file.read().text; file = null;
-	return &#39;&lt;script type=&quot;text/javascript&quot;&gt;&#39;+read+&#39;&lt;/script&gt;&#39;;
+	var read = minify(file.read().text);
+	file = null;
+	return &#39;&lt;script id=&quot;__weballoy_&#39;+f+&#39;&quot; type=&quot;text/javascript&quot;&gt;&#39;+read+&#39;&lt;/script&gt;&#39;;
 }
 
 <span id='WebAlloy-method-createView'>/**
@@ -144,16 +165,37 @@ exports.createView = function(args) {
 		backgroundColor: &quot;transparent&quot;
 	}, args));
 
+	// Include head (styles)
 	var html = &#39;&lt;!DOCTYPE html&gt;&#39;;
-	html += &#39;&lt;html&gt;&lt;head&gt;&lt;meta charset=&quot;utf-8&quot; /&gt;&lt;meta name=&quot;viewport&quot; content=&quot;initial-scale=1.0; maximum-scale=1.0; user-scalable=no;&quot; /&gt;&#39;;
-	html += embedCSS(&#39;web/app.css&#39;) + embedCSS(&#39;web/styles/&#39;+args.name+&#39;.css&#39;);
-	html += &#39;&lt;/head&gt;&lt;body&gt;&lt;div id=&quot;main&quot;&gt;&#39;;
+	html += &#39;&lt;html&gt;&lt;head&gt;&#39;;
+	html += &#39;&lt;meta charset=&quot;utf-8&quot; /&gt;&#39;;
+	html += &#39;&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width; initial-scale=1.0; maximum-scale=1.0; user-scalable=no;&quot; /&gt;&#39;;
 
-	$ui.tpl = _.template(Ti.Filesystem.getFile(&#39;web/views/&#39;+args.name+&#39;.tpl&#39;).read().text);
-	html += $ui.tpl(args.webdata);
+	html += embedCSS(&#39;web/app.css&#39;);
+	html += embedCSS(&#39;web/styles/&#39;+args.name+&#39;.css&#39;);
 
+	html += &#39;&lt;/head&gt;&lt;body&gt;&#39;;
+
+	// Include template
+	html += &#39;&lt;div id=&quot;main&quot;&gt;&#39;;
+	var tplf = Ti.Filesystem.getFile(&#39;web/views/&#39;+args.name+&#39;.tpl&#39;);
+	if (tplf.exists()) {
+		$ui.tpl = _.template(tplf.read().text);
+		html += $ui.tpl(args.webdata);
+	} else {
+		Ti.API.warn(&quot;WebAlloy: no view found [&quot;+args.name+&quot;]&quot;);
+	}
+	tplf = null;
 	html += &#39;&lt;/div&gt;&#39;;
-	html += embedJS(&#39;web/jquery.jslocal&#39;) + embedJS(&#39;web/app.jslocal&#39;) + embedJS(&#39;web/controllers/&#39;+args.name+&#39;.jslocal&#39;);
+
+	// Include libs
+	_.each(libDir, function(js) {
+		html += embedJS(js);
+	});
+
+	// Include footer
+	html += embedJS(&#39;web/app.jslocal&#39;);
+	html += embedJS(&#39;web/controllers/&#39;+args.name+&#39;.jslocal&#39;);
 	html += &#39;&lt;/body&gt;&lt;/html&gt;&#39;;
 
 	$ui.setHtml(html);
@@ -188,6 +230,15 @@ exports.createView = function(args) {
 	};
 
 	return $ui;
-};</pre>
+};
+
+
+(function init() {
+
+	_.each(Ti.Filesystem.getFile(&#39;web/lib&#39;).getDirectoryListing(), function(js) {
+		libDir.push(&#39;web/lib/&#39;+js);
+	});
+
+})();</pre>
 </body>
 </html>
