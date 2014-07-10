@@ -28,6 +28,7 @@
  * * **headers**: Global headers for all requests. Default: `{}`
  * * **usePingServer**: Enable the PING-Server support. Default: `true`
  * * **autoOfflineMessage**: Enable the automatic alert if the connection is offline
+ * * **httpieDebug**: Enable the httpie debug. Default: `true`
  * @type {Object}
  */
 var config = _.extend({
@@ -36,7 +37,8 @@ var config = _.extend({
 	useCache: true,
 	headers: {},
 	usePingServer: true,
-	autoOfflineMessage: true
+	autoOfflineMessage: true,
+	httpieDebug: true
 }, Alloy.CFG.T.net);
 exports.config = config;
 
@@ -125,8 +127,21 @@ function decorateRequest(request) {
 	request.timeout = request.timeout || config.timeout;
 	if (request.error===undefined) request.error = errorHandler;
 
+	// httpie debug
+	if (config.httpieDebug) {
+		Ti.API.debug(
+		(Ti.Shadow?&quot;&lt;textarea onclick=&#39;this.select()&#39; style=&#39;width:100%&#39;&gt;&quot;:&#39;&#39;)+
+		&quot;http &quot;+
+		request.method+&quot; &quot;+
+		request.url+&quot; &quot;+
+		jsonToWWW(request.headers,&#39; &#39;,&#39;=&#39;)+&quot; &quot;+
+		jsonToWWW(request.data, &#39; &#39;, request.method===&#39;GET&#39;?&#39;==&#39;:&#39;=&#39;)+
+		(Ti.Shadow?&quot;&lt;/textarea&gt;&quot;:&#39;&#39;)
+		);
+	}
+
 	// Rebuild the URL if is a GET and there&#39;s data
-	if (request.method==&#39;GET&#39; &amp;&amp; request.data) {
+	if (request.method===&#39;GET&#39; &amp;&amp; request.data) {
 		var buildedQuery = require(&#39;T/util&#39;).buildQuery(request.data);
 		delete request.data;
 		request.url = request.url + buildedQuery.toString();
@@ -187,7 +202,7 @@ function onComplete(request, response, e){
 		SUCCESS
 		*/
 
-		Ti.API.debug(&quot;Net: REQ-[&quot;+request.hash+&quot;] success - &quot;+response.responseText);
+		Ti.API.debug(&quot;Net: REQ-[&quot;+request.hash+&quot;] success&quot;);
 
 		// Write cache
 		if (NetCache) {
@@ -402,6 +417,18 @@ exports.deleteCache = function(hash) {
 	NetCache.del(hash);
 };
 
+function jsonToWWW(obj, sep, eq, k, R) {
+	var R = R || [];
+	for (var i in obj) {
+		var _k = k!==undefined;
+		if (typeof obj[i]===&#39;object&#39;) {
+			jsonToWWW(obj[i], null, eq, (_k?k+&#39;[&#39;:&#39;&#39;)+i+(_k?&#39;]&#39;:&#39;&#39;), R);
+		} else {
+			R.push((_k?k+&#39;[&#39;+i+&#39;]&#39;:i)+(eq||&#39;=&#39;)+obj[i]);
+		}
+	}
+	return R.join(sep||&#39;&amp;&#39;);
+}
 
 <span id='Net-method-send'>/**
 </span> * The main function of the module, create the HTTPClient and make the request
@@ -491,7 +518,6 @@ function send(request) {
 	else H.send();
 
 	Ti.API.debug(&quot;Net: REQ-[&quot;+request.hash+&quot;] sent&quot;);
-	Ti.API.debug(&quot;HTTP &quot;+[request.method,request.url,JSON.stringify(request.data)||&#39;{}&#39;].join(&#39; &#39;));
 
 	// And return the hash of this request
 	return request.hash;
