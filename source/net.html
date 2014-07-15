@@ -130,13 +130,11 @@ function decorateRequest(request) {
 	// httpie debug
 	if (config.httpieDebug) {
 		Ti.API.debug(
-		(Ti.Shadow?&quot;&lt;textarea onclick=&#39;this.select()&#39; style=&#39;width:100%&#39;&gt;&quot;:&#39;&#39;)+
-		&quot;http &quot;+
-		request.method+&quot; &quot;+
-		request.url+&quot; &quot;+
+		//(Ti.Shadow?&quot;&lt;textarea onclick=&#39;this.select()&#39; style=&#39;width:100%&#39;&gt;&quot;:&#39;&#39;)+
+		&quot;http &quot;+request.method+&quot; &quot;+request.url+&quot; &quot;+
 		jsonToWWW(request.headers,&#39; &#39;,&#39;=&#39;)+&quot; &quot;+
-		jsonToWWW(request.data, &#39; &#39;, request.method===&#39;GET&#39;?&#39;==&#39;:&#39;=&#39;)+
-		(Ti.Shadow?&quot;&lt;/textarea&gt;&quot;:&#39;&#39;)
+		jsonToWWW(request.data, &#39; &#39;, request.method===&#39;GET&#39;?&#39;==&#39;:&#39;=&#39;)
+		//+(Ti.Shadow?&quot;&lt;/textarea&gt;&quot;:&#39;&#39;)
 		);
 	}
 
@@ -202,8 +200,6 @@ function onComplete(request, response, e){
 		SUCCESS
 		*/
 
-		Ti.API.debug(&quot;Net: REQ-[&quot;+request.hash+&quot;] success&quot;);
-
 		// Write cache
 		if (NetCache) {
 			if (request.cache!==false &amp;&amp; request.method===&#39;GET&#39; &amp;&amp; info.expire&gt;require(&#39;T/util&#39;).timestamp()) {
@@ -219,8 +215,6 @@ function onComplete(request, response, e){
 		ERROR
 		*/
 
-		Ti.API.error(&quot;Net: REQ-[&quot;+request.hash+&quot;] error - &quot;+returnError+&quot; - &quot;+e.error);
-
 		// Parse the error returned from the server
 		if (returnValue &amp;&amp; returnValue.error) {
 			returnError = returnValue.error.message ? returnValue.error.message : returnValue.error;
@@ -230,6 +224,8 @@ function onComplete(request, response, e){
 
 		// Build the error
 		var E = { message: returnError, code: response.status };
+		Ti.API.error(&quot;Net: REQ-[&quot;+request.hash+&quot;] error - &quot;+JSON.stringify(E));
+
 		if (typeof request.error===&#39;function&#39;) request.error(E);
 
 	}
@@ -458,11 +454,8 @@ function send(request) {
 
 			var cache = NetCache.get(request, !onlineStatus);
 			if (cache) {
-				Ti.API.debug(&quot;Net: REQ-[&quot;+request.hash+&quot;] success (cache)&quot;);
-
 				if (typeof request.complete===&#39;function&#39;) request.complete();
 				if (typeof request.success===&#39;function&#39;) request.success(cache);
-
 				return request.hash;
 			}
 		}
@@ -516,8 +509,6 @@ function send(request) {
 	// Finally, send the request
 	if (request.data) H.send(request.data);
 	else H.send();
-
-	Ti.API.debug(&quot;Net: REQ-[&quot;+request.hash+&quot;] sent&quot;);
 
 	// And return the hash of this request
 	return request.hash;
