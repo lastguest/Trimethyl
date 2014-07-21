@@ -141,6 +141,20 @@ exports.getFacebookAvatar = function(fbid, w, h) {
 	return &#39;http://graph.facebook.com/&#39;+fbid+&#39;/picture/?width=&#39;+(w||150)+&#39;&amp;height=&#39;+(h||150);
 };
 
+<span id='Util-method-openInStore'>/**
+</span> * @method openInStore
+ * Open the iTunes Store or Google Play Store of specified appid
+ * @param {String} appid Application ID
+ */
+exports.openInStore = function(appid) {
+	if (OS_IOS) {
+		Ti.Platform.openURL(&#39;https://itunes.apple.com/app/id&#39;+appid);
+	} else if (OS_ANDROID) {
+		Ti.Platform.openURL(&#39;https://play.google.com/store/apps/details?id=&#39;+appid);
+	}
+};
+
+
 
 <span id='Util-method-reviewInStore'>/**
 </span> * @method reviewInStore
@@ -248,9 +262,10 @@ exports.prompt = alertPrompt;
  * @param  {Function} [cb]    	The callback to invoke when clicking *Yes*.
  * @return {Ti.UI.AlertDialog}
  */
-exports.confirm = function(title, msg, cb) {
+function confirm(title, msg, cb) {
 	return alertPrompt(title, msg, [ L(&#39;Cancel&#39;), L(&#39;Yes&#39;) ], 0, cb, { selectedIndex: 1 });
-};
+}
+exports.confirm = confirm;
 
 
 <span id='Util-method-confirmCustom'>/**
@@ -444,6 +459,17 @@ exports.uniqid = function(prefix, more_entropy) {
 	return retId;
 };
 
+<span id='Util-method-now'>/**
+</span> * @method now
+ * Get the current UNIX timestamp.
+ * @return {Number}
+ */
+function now(t) {
+	return parseInt((+new Date())/1000,10);
+}
+exports.now = now;
+
+
 <span id='Util-method-timestamp'>/**
 </span> * @method timestamp
  * Get the UNIX timestamp.
@@ -451,10 +477,11 @@ exports.uniqid = function(prefix, more_entropy) {
  * @param  {String} [t]  The date to parse. If is not provided, get current timestamp.
  * @return {Number}
  */
-exports.timestamp = function(t) {
-	if (t) return parseInt(new Date(t).getTime()/1000, 10);
-	return parseInt(new Date().getTime()/1000, 10);
-};
+function timestamp(t) {
+	if (!t) return now();
+	return parseInt((+new Date(t))/1000,10);
+}
+exports.timestamp = timestamp;
 
 
 <span id='Util-method-fromnow'>/**
@@ -465,7 +492,7 @@ exports.timestamp = function(t) {
  * @return {Number}
  */
 exports.fromnow = function(t) {
-	return parseInt(new Date(new Date().getTime()+t*1000).getTime()/1000, 10);
+	return timestamp( (now()+t)*1000 );
 };
 
 

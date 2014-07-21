@@ -123,7 +123,9 @@ exports.config = config;
 
 var libDir = [];
 
-function embedCSS(f) {
+function embedCSS(f, html) {
+	if (html) return &#39;&lt;link rel=&quot;stylesheet&quot; href=&quot;&#39;+f+&#39;&quot; /&gt;&#39;;
+
 	var file = Ti.Filesystem.getFile(f);
 	if (!file.exists()) return &#39;&#39;;
 	var read = file.read().text;
@@ -131,13 +133,16 @@ function embedCSS(f) {
 	return &#39;&lt;style id=&quot;__weballoy_&#39;+f+&#39;&quot; type=&quot;text/css&quot;&gt;&#39;+read+&#39;&lt;/style&gt;&#39;;
 }
 
-function embedJS(f) {
+function embedJS(f, html) {
+	if (html) return &#39;&lt;script id=&quot;__weballoy_&#39;+f+&#39;&quot; type=&quot;text/javascript&quot; src=&quot;&#39;+f+&#39;&quot;&gt;&lt;/script&gt;&#39;;
+
 	var file = Ti.Filesystem.getFile(f);
 	if (!file.exists()) return &#39;&#39;;
 	var read = file.read().text;
 	file = null;
 	return &#39;&lt;script id=&quot;__weballoy_&#39;+f+&#39;&quot; type=&quot;text/javascript&quot;&gt;&#39;+read+&#39;&lt;/script&gt;&#39;;
 }
+
 
 <span id='WebAlloy-method-createView'>/**
 </span> * @method createView
