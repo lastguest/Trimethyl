@@ -48,19 +48,19 @@ var $TRACKER = null;
  */
 function trackEvent(cat, act, lbl, val){
 	if (!$TRACKER) return;
+	var obj = {};
 
 	if (_.isObject(cat)) {
-		$TRACKER.trackEvent(cat);
+		obj = cat;
 	} else {
-
-		var obj = {};
 		obj.category = cat;
 		obj.action = act;
 		obj.label = lbl ? lbl : &#39;&#39;;
 		obj.value = val ? +val : 0;
-
-		$TRACKER.trackEvent(obj);
 	}
+
+	$TRACKER.trackEvent(obj);
+	console.log(&quot;GA: EVENT - &quot;+JSON.stringify(obj));
 }
 exports.trackEvent = trackEvent;
 
@@ -81,6 +81,7 @@ function trackScreen(name){
 	if (!$TRACKER) return;
 
 	$TRACKER.trackScreen(name);
+	console.log(&quot;GA: SCREEN - &quot;+name);
 }
 exports.trackScreen = trackScreen;
 
@@ -101,18 +102,18 @@ exports.screen = trackScreen;
  */
 function trackSocial(net, act, tar){
 	if (!$TRACKER) return;
+	var obj = {};
 
 	if (_.isObject(net)) {
-		$TRACKER.trackSocial(net);
+		obj = net;
 	} else {
-
-		var obj = {};
 		obj.network = net;
 		obj.action = act || &#39;share&#39;;
 		obj.target = tar || &#39;&#39;;
-
-		$TRACKER.trackSocial(obj);
 	}
+
+	$TRACKER.trackSocial(net);
+	console.log(&quot;GA: SOCIAL - &quot;+JSON.stringify(obj));
 }
 exports.trackSocial = trackSocial;
 
@@ -122,6 +123,42 @@ exports.trackSocial = trackSocial;
  * Alias for {@link #trackSocial}
  */
 exports.social = trackSocial;
+
+
+
+<span id='GA-method-trackTiming'>/**
+</span> * Track timing
+ *
+ * @param  {String} net The social network: facebook, twitter, googleplus...
+ * @param  {String} act The action associated
+ * @param  {String} tar The target associated
+ */
+function trackTiming(cat, time, name, lbl){
+	if (!$TRACKER) return;
+	var obj = {};
+
+	if (_.isObject(cat)) {
+		obj = cat;
+	} else {
+		obj.category = cat;
+		obj.time = time;
+		obj.name = name || &#39;&#39;;
+		obj.label = lbl || &#39;&#39;;
+	}
+
+	$TRACKER.trackTiming(obj);
+	console.log(&quot;GA: TIME - &quot;+JSON.stringify(obj));
+}
+exports.trackTiming = trackTiming;
+
+<span id='GA-method-time'>/**
+</span> * @method time
+ * @inheritDoc #trackTiming
+ * Alias for {@link #trackTiming}
+ */
+exports.time = trackTiming;
+
+
 
 <span id='GA-method-setTrackerUA'>/**
 </span> * Set the tracker UA.

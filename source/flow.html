@@ -119,30 +119,6 @@ function closeController(controller) {
 exports.closeController = closeController;
 
 
-<span id='Flow-method-openDirect'>/**
-</span> * Require an Alloy.Controller without passing it to the navigation window
- *
- * This is tracked with Google Analitycs
- *
- * @param  {String} controller The name of the controller
- * @param  {Object} [args]     The args passed to the controller
- */
-function openDirect(controller, args) {
-	Ti.API.debug(&quot;Flow: opening directly &#39;&quot;+controller+&quot;&#39; with args &quot;+JSON.stringify(args));
-
-	// Open the controller
-	var $ctrl = Alloy.createController(controller, args || {});
-
-	// Track with Google Analitycs
-	if (config.trackWithGA) {
-		require(&#39;T/ga&#39;).trackScreen(controller);
-	}
-
-	return $ctrl;
-}
-exports.openDirect = openDirect;
-
-
 <span id='Flow-method-openWindow'>/**
 </span> * Open a Window in current flow.
  *
@@ -170,6 +146,34 @@ function openWindow($window, opt) {
 exports.openWindow = openWindow;
 
 
+<span id='Flow-method-openDirect'>/**
+</span> * Require an Alloy.Controller without passing it to the navigation window
+ *
+ * This is tracked with Google Analitycs
+ *
+ * @param  {String} controller The name of the controller
+ * @param  {Object} [args]     The args passed to the controller
+ * @param  {Object} [opt]        Additional arguments
+ * @param  {String} [key]			Optional key that identify this controller
+ */
+function openDirect(controller, args, opt, key) {
+	key = key || controller;
+
+	Ti.API.debug(&quot;Flow: opening directly &#39;&quot;+controller+&quot;&#39; with args &quot;+JSON.stringify(args));
+
+	// Open the controller
+	var $ctrl = Alloy.createController(controller, args || {});
+
+	// Track with Google Analitycs
+	if (config.trackWithGA) {
+		require(&#39;T/ga&#39;).trackScreen(key);
+	}
+
+	return $ctrl;
+}
+exports.openDirect = openDirect;
+
+
 <span id='Flow-method-open'>/**
 </span> * Require an Alloy.Controller and open the main window associated with it
  *
@@ -184,11 +188,13 @@ exports.openWindow = openWindow;
  * @param  {Object} [args]       The arguments passed to the controller
  * @param  {Object} [opt]        Additional arguments:
  * * **openArgs**: The arguments passed to the Window.open
+ * @param  {String} [key]			Optional key that identify this controller
  * @return {Alloy.Controller}    The controller instance
  */
-function open(controller, args, opt) {
+function open(controller, args, opt, key) {
 	args = args || {};
 	opt = opt || {};
+	key = key || controller;
 
 	Ti.API.debug(&quot;Flow: opening &#39;&quot;+controller+&quot;&#39; with args &quot;+JSON.stringify(args));
 
@@ -218,11 +224,31 @@ function open(controller, args, opt) {
 
 	// Track with Google Analitycs
 	if (config.trackWithGA) {
-		require(&#39;T/ga&#39;).trackScreen(controller);
+		require(&#39;T/ga&#39;).trackScreen(key);
+
+		try {
+
+			// Track time with GA
+
+			var startFocusTime = null;
+			$win.addEventListener(&#39;focus&#39;, function(){
+				startFocusTime = +(new Date());
+			});
+
+			$win.addEventListener(&#39;blur&#39;, function(){
+				if (startFocusTime) {
+					require(&#39;T/ga&#39;).time(key, +(new Date())-startFocusTime);
+				}
+			});
+
+		} catch (ex) {}
 	}
 
 	// Put in the history current controller an its args
-	hist.push({ controller: controller, args: args });
+	hist.push({
+		controller: controller,
+		args: args
+	});
 
 	// Close current controller if not using NavigationWindow based stack
 	if (!config.useNav &amp;&amp; !opt.singleTask &amp;&amp; $_cur_CTRL) {
