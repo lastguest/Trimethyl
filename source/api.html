@@ -20,6 +20,7 @@
  * API-Rest Alloy Adapter
  */
 
+var Net = require(&#39;T/net&#39;);
 var CRUD_TO_REST = {
 	&#39;create&#39; : &#39;POST&#39;,
 	&#39;read&#39; : &#39;GET&#39;,
@@ -28,24 +29,15 @@ var CRUD_TO_REST = {
 };
 
 exports.sync = function(method, model, opt) {
-
-	var url = &#39;&#39;;
-	if (model.config.adapter.baseUrl &amp;&amp; model.config.adapter.baseUrl.length&gt;0) {
-		url = model.config.adapter.baseUrl;
-	} else {
-		url = &#39;/&#39;;
-	}
-
-	url += model.config.adapter.name;
+	var collection = true;
+	var url = (model.config.adapter.baseUrl || &#39;/&#39;) + model.config.adapter.name;
 
 	if (model.id) {
+		collection = false;
 		url += &#39;/&#39; + model.id;
 	}
 
-	if (opt.patch) {
-		method = &#39;patch&#39;;
-	}
-
+	if (opt.patch) method = &#39;patch&#39;;
 	var data = _.extend(opt.netArgs || {}, opt.networkArgs || {}, {
 		url: url,
 		method: CRUD_TO_REST[method],
@@ -53,7 +45,7 @@ exports.sync = function(method, model, opt) {
 	});
 
 	if (Alloy.Backbone.emulateHTTP) {
-		if ([&#39;DELETE&#39;,&#39;PUT&#39;,&#39;PATCH&#39;].indexOf(data.method)!==false) {
+		if ([&#39;DELETE&#39;,&#39;PUT&#39;,&#39;PATCH&#39;].indexOf(data.method)!==-1) {
 			data.headers = _.extend(data.headers || {}, { &#39;X-HTTP-Method-Override&#39;: data.method });
 			data.method = &#39;POST&#39;;
 		}
@@ -62,13 +54,14 @@ exports.sync = function(method, model, opt) {
 	switch (method) {
 
 		case &#39;create&#39;:
-		require(&#39;T/net&#39;).send(_.extend(data, {
+		Net.send(_.extend(data, {
 			data: model.toJSON(),
 			success: function(resp) {
-				if (resp.id) {
+
+				if (resp &amp;&amp; resp.id) {
 					opt.success(resp);
 				} else {
-					opt.success();
+					opt.error();
 				}
 
 				if (opt.ready) opt.ready();
@@ -79,10 +72,21 @@ exports.sync = function(method, model, opt) {
 		break;
 
 		case &#39;read&#39;:
-		require(&#39;T/net&#39;).send(_.extend(data, {
+		Net.send(_.extend(data, {
 			data: opt.args || {},
 			success: function(resp) {
-				opt.success(resp);
+
+				if (resp) {
+					if (collection) {
+						if (_.isObject(resp) &amp;&amp; resp.data) opt.success(resp.data);
+						else if (_.isArray(resp)) opt.success(resp);
+						else opt.error();
+					} else {
+						opt.success(resp);
+					}
+				} else {
+					opt.error();
+				}
 
 				if (opt.ready) opt.ready();
 				model.trigger(&quot;fetch&quot;);
@@ -92,13 +96,14 @@ exports.sync = function(method, model, opt) {
 		break;
 
 		case &#39;update&#39;:
-		require(&#39;T/net&#39;).send(_.extend(data, {
+		Net.send(_.extend(data, {
 			data: _.pick(model.attributes, _.keys(opt.changes)),
 			success: function(resp) {
-				if (resp.id) {
-					opt.success(resp);
-				} else {
+
+				if (resp) {
 					opt.success();
+				} else {
+					opt.error();
 				}
 
 				if (opt.ready) opt.ready();
@@ -109,10 +114,15 @@ exports.sync = function(method, model, opt) {
 		break;
 
 		case &#39;delete&#39;:
-		require(&#39;T/net&#39;).send(_.extend(data, {
+		Net.send(_.extend(data, {
 			data: opt.args || {},
 			success: function(resp) {
-				opt.success();
+
+				if (resp) {
+					opt.success();
+				} else {
+					opt.error();
+				}
 
 				if (opt.ready) opt.ready();
 				model.trigger(&quot;fetch&quot;);

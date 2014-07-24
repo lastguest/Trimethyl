@@ -390,12 +390,36 @@ function simpleHTMLParser(text) {
  *
  * For now, supports `&lt;b&gt;&lt;i&gt;&lt;u&gt;&lt;br&gt;&lt;p&gt;` tags.
  *
+ * If you specify `fontTransform` property in the arguments,
+ * the specified transformation is applied to current font.
+ * For example:
+ *
+ * ```
+ * italic: {
+ *		fontStyle: &#39;Italic&#39;
+ *	},
+ *	bold: {
+ *		fontFamily: &#39;Arial-Bold&#39;
+ *	}
+ *	```
+ *
+ * It&#39;s useful if you don&#39;t have a regular font syntax.
+ *
  * @param  {Object} args
  */
 exports.createLabel = function(args) {
 	var $this = Ti.UI.createLabel(args || {});
 
 	if (OS_IOS) {
+
+		var fontTransform = _.extend({
+			italic: {
+				fontStyle: &#39;Italic&#39;
+			},
+			bold: {
+				fontWeight: &#39;Bold&#39;
+			}
+		}, args.fontTransform || {});
 
 		$this.setHtml = function(value) {
 			var htmlToAttrMap = {
@@ -405,19 +429,11 @@ exports.createLabel = function(args) {
 				},
 				&#39;i&#39;: {
 					type: Ti.UI.iOS.ATTRIBUTE_FONT,
-					value: args.font ? (
-					/-Regular/.test(args.font.fontFamily) ?
-					{ fontFamily: args.font.fontFamily.replace(&#39;-Regular&#39;, &#39;-Italic&#39;), fontSize: args.font.fontSize } :
-					{ fontFamily: args.font.fontFamily, fontSize: args.font.fontSize, fontStyle: &#39;Italic&#39; }
-					) : { fontStyle: &#39;Italic&#39; }
+					value: args.fontTransformation_.extend(args.font, fontTransform.italic)
 				},
 				&#39;b&#39;: {
 					type: Ti.UI.iOS.ATTRIBUTE_FONT,
-					value: args.font ? (
-					/-Regular/.test(args.font.fontFamily) ?
-					{ fontFamily: args.font.fontFamily.replace(&#39;-Regular&#39;, &#39;-Bold&#39;), fontSize: args.font.fontSize } :
-					{ fontFamily: args.font.fontFamily, fontSize: args.font.fontSize, fontWeight: &#39;Bold&#39; }
-					) : { fontWeight: &#39;Bold&#39; }
+					value: _.extend(args.font, fontTransform.bold)
 				}
 			};
 
@@ -502,7 +518,7 @@ exports.createTabbedBar = function(args) {
 	$this.getLabels = function() { return $this._labels; };
 	$this.setLabels = function(lbls) {
 		$this._labels = [];
-		_.each(lbls, function(l,i){
+		_.each(lbls, function(l, i){
 			$this._labels.push(_.isObject(l) ? l.title : l);
 		});
 
